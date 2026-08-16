@@ -282,7 +282,7 @@ function renderSiteFooter() {
     <footer class="site-footer">
       <a
         class="creator-card"
-        href="https://instagram.com/xvzeon"
+        href="https://instagram.com/xvzeon_"
         target="_blank"
         rel="noopener noreferrer"
         aria-label="xvzeon_ Instagram 프로필 열기"

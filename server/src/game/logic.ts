@@ -94,11 +94,11 @@ export function buildProbabilityPayload(current: number) {
     },
     rules: {
       tieRule:
-        "다음 숫자가 현재 숫자와 같으면 UP/DOWN 모두 실패 처리되며, 해당 라운드의 미확정 포인트는 유지되지 않습니다.",
+        "다음 숫자가 현재 숫자와 같으면 UP/DOWN 모두 실패 처리되며, 해당 라운드의 베팅금액은 유지되지 않습니다.",
       probabilityRule:
         "UP 확률 = (100 - 현재숫자) / 100, DOWN 확률 = (현재숫자 - 1) / 100, 동일 숫자 = 1 / 100",
       multiplierRule: `배수 = (1 - ${HOUSE_EDGE * 100}% 하우스 엣지) / 선택 확률`,
-      rewardRule: `성공 시 +floor(${BASE_REWARD} × 배수) 포인트가 현재 게임에 누적됩니다.`,
+      rewardRule: `성공 시 +floor(${BASE_REWARD} × 배수)원이 현재 게임 베팅금액에 누적됩니다.`,
     },
   };
 }

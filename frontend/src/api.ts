@@ -161,14 +161,15 @@ export const api = {
       "/api/game/state"
     );
   },
-  startGame() {
+  startGame(betAmount: number) {
     return request<{
       activeSession: ActiveSession | null;
       board: BoardState;
       message?: string;
+      user?: PublicUser;
     }>("/api/game/start", {
       method: "POST",
-      body: JSON.stringify({}),
+      body: JSON.stringify({ betAmount }),
     });
   },
   guess(choice: "UP" | "DOWN") {

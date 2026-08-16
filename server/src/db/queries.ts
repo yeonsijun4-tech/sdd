@@ -1,4 +1,5 @@
 import type { GameSessionRow, UserRow } from "../types.js";
+import { STARTING_BALANCE } from "../types.js";
 import { getDb } from "./client.js";
 
 export async function findUserById(userId: string): Promise<UserRow | null> {
@@ -21,9 +22,9 @@ export async function createUser(
   getDb()
     .prepare(
       `INSERT INTO users (id, nickname, password_hash, points)
-       VALUES (?, ?, ?, 1000)`
+       VALUES (?, ?, ?, ?)`
     )
-    .run(user.id, user.nickname, user.password_hash);
+    .run(user.id, user.nickname, user.password_hash, STARTING_BALANCE);
 }
 
 export async function getActiveGameSession(userId: string): Promise<GameSessionRow | null> {
@@ -39,14 +40,21 @@ export async function getActiveGameSession(userId: string): Promise<GameSessionR
 }
 
 export async function createGameSession(
-  session: Pick<GameSessionRow, "id" | "user_id" | "current_number">
+  session: Pick<GameSessionRow, "id" | "user_id" | "current_number"> & {
+    session_points?: number;
+  }
 ): Promise<void> {
   getDb()
     .prepare(
       `INSERT INTO game_sessions (id, user_id, current_number, session_points, current_streak, is_active)
-       VALUES (?, ?, ?, 0, 0, 1)`
+       VALUES (?, ?, ?, ?, 0, 1)`
     )
-    .run(session.id, session.user_id, session.current_number);
+    .run(
+      session.id,
+      session.user_id,
+      session.current_number,
+      session.session_points ?? 0
+    );
 }
 
 export async function updateGameSession(

@@ -35,6 +35,7 @@ interface AppState {
   activeGame: "updown" | "oddeven";
   rememberLogin: boolean;
   sessionIp: string;
+  betInput: string;
 }
 
 const state: AppState = {
@@ -54,6 +55,7 @@ const state: AppState = {
   activeGame: "updown",
   rememberLogin: getRememberLogin(),
   sessionIp: "확인 중",
+  betInput: "",
 };
 
 let rankingTimer: number | null = null;
@@ -114,8 +116,8 @@ async function loadSessionInfo() {
   }
 }
 
-function formatNumber(value: number): string {
-  return value.toLocaleString("ko-KR");
+function formatMoney(value: number): string {
+  return `${value.toLocaleString("ko-KR")}원`;
 }
 
 function showToast(message: string, type: "info" | "error" = "info") {
@@ -346,7 +348,7 @@ function renderAuthModal() {
       <div class="modal card-surface holo-border">
         <div class="modal-header">
           <h2 class="holo-text">${state.authMode === "login" ? "로그인" : "회원가입"}</h2>
-          <p class="text-readable">가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
+          <p class="text-readable">가상 돈만 사용하는 UP/DOWN 게임입니다.</p>
         </div>
         <form id="auth-form" class="auth-form">
           <label>
@@ -447,22 +449,24 @@ function renderInfoModal() {
     profile: `
       <div class="info-grid">
         <div><span>닉네임</span><strong>${state.user.nickname}</strong></div>
-        <div><span>소지금</span><strong>${formatNumber(state.user.points)} P</strong></div>
+        <div><span>소지금</span><strong>${formatMoney(state.user.points)}</strong></div>
         <div><span>내 랭킹</span><strong>${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
         <div><span>최고 연승</span><strong>${state.user.maxStreak}</strong></div>
-        <div><span>최고 획득</span><strong>${formatNumber(state.user.maxSessionGain)} P</strong></div>
+        <div><span>최고 획득</span><strong>${formatMoney(state.user.maxSessionGain)}</strong></div>
         <div><span>전적</span><strong>${state.user.wins}승 ${state.user.losses}패</strong></div>
       </div>
     `,
     notice: `
       <ul class="info-list">
-        <li>1zuxm은 가상 포인트만 사용하는 예측 게임입니다.</li>
-        <li>실제 money 거래, 환전, 출금 기능은 없습니다.</li>
+        <li>1zuxm은 가상 돈만 사용하는 예측 게임입니다.</li>
+        <li>실제 환전, 출금 기능은 없습니다.</li>
         <li>게임 중 그만하기를 눌러야 베팅금액이 소지금에 반영됩니다.</li>
       </ul>
     `,
     patch: `
       <ul class="info-list">
+        <li><strong>v1.4</strong> 확률 공개 제거, 베팅금액 직접 입력</li>
+        <li><strong>v1.3</strong> 포인트 → 원(돈) 표기, 시작 금액 10,000원</li>
         <li><strong>v1.2</strong> 카드형 UI, 상단 메뉴, 로그인 유지 추가</li>
         <li><strong>v1.1</strong> 보안코드, 홀로그램 UI, Render 배포</li>
         <li><strong>v1.0</strong> UP/DOWN 숫자 예측 게임 오픈</li>
@@ -496,19 +500,6 @@ function renderOddEvenPlaceholder() {
   `;
 }
 
-function renderRules(board: BoardState | null) {
-  if (!board) return "";
-  return `
-    <div class="rules card-surface holo-border">
-      <h3 class="holo-text">확률 공개</h3>
-      <p>${board.rules.probabilityRule}</p>
-      <p>${board.rules.multiplierRule}</p>
-      <p>${board.rules.rewardRule}</p>
-      <p class="rule-highlight">${board.rules.tieRule}</p>
-    </div>
-  `;
-}
-
 function renderRankingPanel() {
   const myRankText = state.user?.rank ? `#${state.user.rank}` : "-";
 
@@ -522,7 +513,7 @@ function renderRankingPanel() {
         <span>내 순위</span>
         <strong class="holo-text">${myRankText}</strong>
         <span>${state.user?.nickname ?? "게스트"}</span>
-        <strong class="holo-text">${formatNumber(state.user?.points ?? 0)} P</strong>
+        <strong class="holo-text">${formatMoney(state.user?.points ?? 0)}</strong>
       </div>
       <div class="ranking-table-wrap">
         <table>
@@ -545,9 +536,9 @@ function renderRankingPanel() {
                 <tr class="${state.user?.nickname === row.nickname ? "is-me" : ""}">
                   <td class="holo-text">#${row.rank}</td>
                   <td>${row.nickname}</td>
-                  <td>${formatNumber(row.points)}</td>
+                  <td>${formatMoney(row.points)}</td>
                   <td>${row.maxStreak}</td>
-                  <td>${formatNumber(row.maxSessionGain)}</td>
+                  <td>${formatMoney(row.maxSessionGain)}</td>
                 </tr>
               `
                     )
@@ -574,6 +565,9 @@ function renderGameBoard() {
   const upMult = board?.multipliers.up ?? 0;
   const downMult = board?.multipliers.down ?? 0;
   const nextPreview = canPlay ? "?" : "--";
+  const balance = state.user?.points ?? 0;
+  const presetAmounts = [1000, 5000, 10000].filter((amount) => amount <= balance);
+  const canStart = balance > 0;
 
   return `
     <section class="game-board card-surface holo-border ${state.lastResult?.type ?? ""}">
@@ -601,11 +595,11 @@ function renderGameBoard() {
       <div class="status-row">
         <div class="status-chip status-balance">
           <span>소지금</span>
-          <strong>${formatNumber(state.user?.points ?? 0)} P</strong>
+          <strong>${formatMoney(state.user?.points ?? 0)}</strong>
         </div>
         <div class="status-chip status-bet ${bettingAmount > 0 ? "active" : ""}">
           <span>베팅금액</span>
-          <strong id="pending-points" class="holo-text">${formatNumber(bettingAmount)} P</strong>
+          <strong id="pending-points" class="holo-text">${formatMoney(bettingAmount)}</strong>
         </div>
         <div class="status-chip status-streak">
           <span>연승</span>
@@ -613,23 +607,73 @@ function renderGameBoard() {
         </div>
       </div>
 
-      <div class="bet-panel holo-border">
-        <p class="bet-panel-title">베팅 · 맞출 때마다 배수 적용</p>
-        <div class="bet-panel-row">
-          <div class="bet-amount-display">
-            <strong id="bet-display">${formatNumber(bettingAmount)} P</strong>
-          </div>
-          ${
-            canPlay
-              ? `<button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>`
-              : `<button class="btn btn-primary holo-btn" data-action="start-game" data-busy-toggle="true">새 게임 시작</button>`
-          }
-        </div>
-        <small>그만하기를 누르기 전까지 베팅금액은 소지금에 반영되지 않습니다.</small>
+      <div class="bet-panel holo-border ${canPlay ? "bet-panel-active" : "bet-panel-setup"}">
         ${
-          state.user && state.user.points === 0 && !state.user.bonusClaimed && !canPlay
-            ? `<button class="btn btn-secondary bonus-btn" data-action="claim-bonus" data-busy-toggle="true">무료 100P 받기</button>`
-            : ""
+          canPlay
+            ? `
+          <p class="bet-panel-title">진행 중 · 맞출 때마다 베팅금액에 보상이 더해집니다</p>
+          <div class="bet-panel-row">
+            <div class="bet-amount-display">
+              <span class="bet-amount-label">현재 베팅금액</span>
+              <strong id="bet-display">${formatMoney(bettingAmount)}</strong>
+            </div>
+            <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
+          </div>
+          <small>그만하기를 누르면 베팅금액 전체가 소지금으로 들어옵니다. 실패하면 베팅금액을 잃습니다.</small>
+        `
+            : `
+          <div class="bet-input-header">
+            <span class="bet-required-badge">필수 입력</span>
+            <h3 class="bet-input-title holo-text">베팅금액을 입력하세요</h3>
+          </div>
+          <p class="bet-input-guide">
+            게임을 시작하려면 <strong>아래 입력칸에 베팅할 금액(원)</strong>을 꼭 입력해야 합니다.
+            입력한 금액은 소지금에서 바로 차감되며, <strong>그만하기</strong>를 누르면 베팅금액이 소지금으로 돌아옵니다.
+          </p>
+          <label class="bet-input-label" for="bet-amount-input">베팅금액 (원)</label>
+          <div class="bet-input-row">
+            <input
+              id="bet-amount-input"
+              class="bet-amount-input"
+              type="number"
+              inputmode="numeric"
+              min="1"
+              max="${balance}"
+              placeholder="예: 1000"
+              value="${state.betInput}"
+              ${canStart ? "" : "disabled"}
+            />
+            <span class="bet-input-unit">원</span>
+          </div>
+          <p class="bet-input-hint">현재 소지금 ${formatMoney(balance)} · 1원 이상, 소지금 이하만 베팅 가능</p>
+          ${
+            presetAmounts.length > 0
+              ? `
+            <div class="bet-preset-row">
+              ${presetAmounts
+                .map(
+                  (amount) =>
+                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}">${amount.toLocaleString("ko-KR")}원</button>`
+                )
+                .join("")}
+              ${
+                balance > 0
+                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${balance}">전액</button>`
+                  : ""
+              }
+            </div>
+          `
+              : ""
+          }
+          <button class="btn btn-primary holo-btn bet-start-btn" data-action="start-game" data-busy-toggle="true" ${canStart ? "" : "disabled"}>
+            베팅하고 게임 시작
+          </button>
+          ${
+            state.user && state.user.points === 0 && !state.user.bonusClaimed
+              ? `<button class="btn btn-secondary bonus-btn" data-action="claim-bonus" data-busy-toggle="true">무료 10,000원 받기</button>`
+              : ""
+          }
+        `
         }
       </div>
 
@@ -688,7 +732,7 @@ function renderApp() {
         <header class="topbar">
           <div class="brand">
             <span class="brand-mark holo-text">1ZUXM</span>
-            <span class="brand-sub">Virtual Point Game</span>
+            <span class="brand-sub">Virtual Money Game</span>
           </div>
         </header>
         ${renderAuthModal()}
@@ -714,7 +758,6 @@ function renderApp() {
       <main class="layout">
         <section class="main-column">
           ${state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()}
-          ${state.activeGame === "updown" ? renderRules(state.board) : ""}
         </section>
         ${renderRankingPanel()}
       </main>
@@ -796,6 +839,12 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   render();
 }
 
+function getBetAmountFromInput(): number {
+  const input = document.querySelector<HTMLInputElement>("#bet-amount-input");
+  const raw = input?.value ?? state.betInput;
+  return Math.floor(Number(raw));
+}
+
 function bindGlobalEvents() {
   if (eventsBound) return;
   eventsBound = true;
@@ -808,6 +857,13 @@ function bindGlobalEvents() {
     if (!(target instanceof HTMLFormElement) || target.id !== "auth-form") return;
     event.preventDefault();
     void handleAuthSubmit(target);
+  });
+
+  app.addEventListener("input", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLInputElement) || target.id !== "bet-amount-input") return;
+    state.betInput = target.value;
+    target.classList.remove("bet-input-error");
   });
 
   app.addEventListener("click", (event) => {
@@ -884,16 +940,36 @@ function bindGlobalEvents() {
         state.activeModal = null;
         render();
         break;
-      case "start-game":
-        void withBusy(async () => api.startGame()).then((result) => {
+      case "start-game": {
+        const betAmount = getBetAmountFromInput();
+        if (!betAmount || betAmount <= 0) {
+          showToast("베팅금액을 입력해 주세요. 게임 시작 전에 금액을 꼭 입력해야 합니다.", "error");
+          const input = document.querySelector<HTMLInputElement>("#bet-amount-input");
+          input?.classList.add("bet-input-error");
+          input?.focus();
+          break;
+        }
+        void withBusy(async () => api.startGame(betAmount)).then((result) => {
           if (!result) return;
           state.activeSession = result.activeSession;
           state.board = result.board;
           state.lastResult = null;
+          state.betInput = "";
+          if (result.user) state.user = result.user;
           if (result.message) showToast(result.message);
+          else showToast(`${formatMoney(betAmount)} 베팅으로 게임을 시작했습니다.`);
           render();
         });
         break;
+      }
+      case "set-bet": {
+        const amount = Math.floor(Number(button.dataset.amount));
+        if (!Number.isFinite(amount) || amount <= 0) break;
+        state.betInput = String(amount);
+        render();
+        document.querySelector<HTMLInputElement>("#bet-amount-input")?.focus();
+        break;
+      }
       case "claim-bonus":
         void withBusy(async () => api.claimBonus()).then((result) => {
           if (!result) return;
@@ -941,7 +1017,7 @@ async function handleGuess(choice: "UP" | "DOWN") {
   if (result.result === "WIN") {
     state.activeSession = result.activeSession;
     state.board = result.board ?? null;
-    showToast(`성공! +${formatNumber(result.gain ?? 0)} P`);
+    showToast(`성공! +${formatMoney(result.gain ?? 0)}`);
   } else {
     state.activeSession = null;
     state.board = null;

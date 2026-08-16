@@ -19,6 +19,7 @@ interface AppState {
   isBusy: boolean;
   authMode: "login" | "register";
   captcha: CaptchaChallenge | null;
+  showCaptchaHelp: boolean;
   lastResult: {
     type: "WIN" | "LOSE" | "TIE";
     previousNumber: number;
@@ -26,6 +27,7 @@ interface AppState {
     message?: string;
   } | null;
   toast: string | null;
+  toastType: "info" | "error";
 }
 
 const state: AppState = {
@@ -37,8 +39,10 @@ const state: AppState = {
   isBusy: false,
   authMode: "login",
   captcha: null,
+  showCaptchaHelp: false,
   lastResult: null,
   toast: null,
+  toastType: "info",
 };
 
 let rankingTimer: number | null = null;
@@ -48,13 +52,61 @@ function formatNumber(value: number): string {
   return value.toLocaleString("ko-KR");
 }
 
-function showToast(message: string) {
+function showToast(message: string, type: "info" | "error" = "info") {
   state.toast = message;
-  render();
+  state.toastType = type;
+  updateToast();
   window.setTimeout(() => {
     state.toast = null;
-    render();
-  }, 3200);
+    updateToast();
+  }, 3600);
+}
+
+function updateToast() {
+  const existing = document.querySelector(".toast");
+  if (!state.toast) {
+    existing?.remove();
+    return;
+  }
+
+  const toast =
+    existing instanceof HTMLElement
+      ? existing
+      : (() => {
+          const element = document.createElement("div");
+          document.body.appendChild(element);
+          return element;
+        })();
+
+  toast.className = `toast ${state.toastType === "error" ? "toast-error" : "toast-info"}`;
+  toast.textContent = state.toast;
+}
+
+function updateCaptchaHelp() {
+  const button = document.querySelector<HTMLButtonElement>('[data-action="toggle-captcha-help"]');
+  if (button) {
+    button.setAttribute("aria-expanded", String(state.showCaptchaHelp));
+  }
+
+  const field = document.querySelector(".captcha-field");
+  if (!field) return;
+
+  let help = field.querySelector<HTMLElement>(".captcha-help-text");
+  if (state.showCaptchaHelp) {
+    if (!help) {
+      help = document.createElement("p");
+      help.className = "captcha-help-text";
+      help.textContent = "드래그하여 문제를 확인하세요.";
+      const row = field.querySelector(".captcha-row");
+      if (row) {
+        field.insertBefore(help, row);
+      } else {
+        field.appendChild(help);
+      }
+    }
+  } else {
+    help?.remove();
+  }
 }
 
 function setBusy(isBusy: boolean) {
@@ -71,19 +123,42 @@ async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
   try {
     return await task();
   } catch (error) {
-    showToast(error instanceof Error ? error.message : "오류가 발생했습니다.");
+    showToast(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
     return null;
   } finally {
     setBusy(false);
   }
 }
 
-async function loadCaptcha() {
+async function loadCaptcha(options: { silent?: boolean } = {}) {
   try {
     state.captcha = await api.captcha();
+    updateCaptchaFields();
   } catch (error) {
     state.captcha = null;
-    showToast(error instanceof Error ? error.message : "보안코드를 불러오지 못했습니다.");
+    updateCaptchaFields();
+    if (!options.silent) {
+      showToast(
+        error instanceof Error ? error.message : "보안코드를 불러오지 못했습니다.",
+        "error"
+      );
+    }
+  }
+}
+
+function updateCaptchaFields() {
+  const box = document.querySelector<HTMLElement>(".captcha-box");
+  const hidden = document.querySelector<HTMLInputElement>('input[name="captchaId"]');
+  const answer = document.querySelector<HTMLInputElement>('input[name="captchaAnswer"]');
+
+  if (box) {
+    box.textContent = state.captcha?.question ?? "불러오는 중...";
+  }
+  if (hidden) {
+    hidden.value = state.captcha?.captchaId ?? "";
+  }
+  if (answer && document.activeElement !== answer) {
+    answer.value = "";
   }
 }
 
@@ -129,31 +204,64 @@ async function bootstrap() {
   render();
 }
 
-function renderToast() {
-  return state.toast ? `<div class="toast holo-text">${state.toast}</div>` : "";
+function renderSiteFooter() {
+  return `
+    <footer class="site-footer">
+      <span>MADE BY </span>
+      <a
+        class="insta-holo"
+        href="https://instagram.com/xvzeon"
+        target="_blank"
+        rel="noopener noreferrer"
+      >xvzeon_</a>
+    </footer>
+  `;
 }
 
 function renderAuthModal() {
   const captchaBlock =
     state.authMode === "register"
       ? `
-        <label>
-          <span>보안코드</span>
+        <div class="captcha-field">
+          <div class="captcha-label-row">
+            <span>보안코드</span>
+            <button
+              type="button"
+              class="captcha-help-btn"
+              data-action="toggle-captcha-help"
+              aria-expanded="${state.showCaptchaHelp}"
+            >
+              설명
+            </button>
+          </div>
+          ${
+            state.showCaptchaHelp
+              ? `<p class="captcha-help-text">드래그하여 문제를 확인하세요.</p>`
+              : ""
+          }
           <div class="captcha-row">
-            <div class="captcha-box holo-text">${state.captcha?.question ?? "불러오는 중..."}</div>
-            <button class="btn btn-ghost captcha-refresh" type="button" data-action="refresh-captcha" data-busy-toggle="true">
+            <div class="captcha-box text-readable" draggable="true">${state.captcha?.question ?? "불러오는 중..."}</div>
+            <button
+              class="btn btn-ghost captcha-refresh"
+              type="button"
+              data-action="refresh-captcha"
+              data-busy-toggle="true"
+            >
               새로고침
             </button>
           </div>
-          <input
-            name="captchaAnswer"
-            inputmode="numeric"
-            autocomplete="off"
-            placeholder="정답 입력"
-            required
-          />
+          <label>
+            <span class="sr-only">보안코드 정답</span>
+            <input
+              name="captchaAnswer"
+              inputmode="numeric"
+              autocomplete="off"
+              placeholder="정답 입력"
+              required
+            />
+          </label>
           <input type="hidden" name="captchaId" value="${state.captcha?.captchaId ?? ""}" />
-        </label>
+        </div>
       `
       : "";
 
@@ -162,7 +270,7 @@ function renderAuthModal() {
       <div class="modal card-surface holo-border">
         <div class="modal-header">
           <h2 class="holo-text">${state.authMode === "login" ? "로그인" : "회원가입"}</h2>
-          <p>가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
+          <p class="text-readable">가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
         </div>
         <form id="auth-form" class="auth-form">
           <label>
@@ -338,9 +446,10 @@ function renderApp() {
           </div>
         </header>
         ${renderAuthModal()}
+        ${renderSiteFooter()}
       </div>
-      ${renderToast()}
     `;
+    updateToast();
     return;
   }
 
@@ -366,9 +475,10 @@ function renderApp() {
         </section>
         ${renderRankingPanel()}
       </main>
+      ${renderSiteFooter()}
     </div>
-    ${renderToast()}
   `;
+  updateToast();
 }
 
 function render() {
@@ -377,8 +487,9 @@ function render() {
 
 async function switchAuthMode(mode: "login" | "register") {
   state.authMode = mode;
+  state.showCaptchaHelp = false;
   if (mode === "register") {
-    await loadCaptcha();
+    await loadCaptcha({ silent: true });
   } else {
     state.captcha = null;
   }
@@ -399,8 +510,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     );
 
     if (!result) {
-      await loadCaptcha();
-      render();
+      await loadCaptcha({ silent: true });
       return;
     }
 
@@ -450,15 +560,31 @@ function bindGlobalEvents() {
     const action = button.dataset.action;
     if (!action) return;
 
+    if (action === "refresh-captcha") {
+      if (!(button instanceof HTMLButtonElement)) return;
+      if (target.closest(".captcha-box")) return;
+      if (target !== button && !button.contains(target)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      void loadCaptcha();
+      return;
+    }
+
+    if (action === "toggle-captcha-help") {
+      event.preventDefault();
+      state.showCaptchaHelp = !state.showCaptchaHelp;
+      updateCaptchaHelp();
+      return;
+    }
+
+    event.preventDefault();
+
     switch (action) {
       case "set-login":
         void switchAuthMode("login");
         break;
       case "set-register":
         void switchAuthMode("register");
-        break;
-      case "refresh-captcha":
-        void loadCaptcha().then(() => render());
         break;
       case "logout":
         setToken(null);

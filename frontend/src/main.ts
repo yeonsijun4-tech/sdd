@@ -391,7 +391,7 @@ function renderMainNav() {
     <nav class="main-nav-image" aria-label="메인 메뉴">
       <div class="main-nav-inner">
         <button
-          class="nav-side-btn ${state.activeGame === "oddeven" ? "active" : ""}"
+          class="nav-side-btn nav-left ${state.activeGame === "oddeven" ? "active" : ""}"
           type="button"
           data-action="nav-oddeven"
         >
@@ -406,46 +406,43 @@ function renderMainNav() {
           >
             메인메뉴
           </button>
-          ${
-            state.showMainMenu
-              ? `
-            <div class="nav-dropdown ui-panel-image">
-              <button type="button" data-action="open-profile">회원정보</button>
-              <button type="button" data-action="open-notice">공지사항</button>
-              <button type="button" data-action="open-patch">패치노트</button>
-            </div>
-          `
-              : ""
-          }
         </div>
         <button
-          class="nav-side-btn ${state.activeGame === "updown" ? "active" : ""}"
+          class="nav-side-btn nav-right ${state.activeGame === "updown" ? "active" : ""}"
           type="button"
           data-action="nav-updown"
         >
           업다운
         </button>
       </div>
+      ${state.showMainMenu ? renderMainMenuPanel() : ""}
     </nav>
   `;
 }
 
-function renderSessionBar() {
+function renderMainMenuPanel() {
   return `
-    <section class="session-bar" aria-label="접속 정보">
-      <div class="ui-info-card">
-        <span>현재 시각</span>
-        <strong id="session-time">${formatSessionTime()}</strong>
+    <div class="main-menu-panel">
+      <div class="menu-info-row">
+        <div class="menu-info-card">
+          <span>현재 시각</span>
+          <strong id="session-time">${formatSessionTime()}</strong>
+        </div>
+        <div class="menu-info-card">
+          <span>접속 IP</span>
+          <strong id="session-ip">${state.sessionIp}</strong>
+        </div>
+        <div class="menu-info-card">
+          <span>접속 기기</span>
+          <strong id="session-device">${detectDeviceLabel()}</strong>
+        </div>
       </div>
-      <div class="ui-info-card">
-        <span>접속 IP</span>
-        <strong id="session-ip">${state.sessionIp}</strong>
+      <div class="menu-link-row">
+        <button type="button" data-action="open-profile">회원정보</button>
+        <button type="button" data-action="open-notice">공지사항</button>
+        <button type="button" data-action="open-patch">패치노트</button>
       </div>
-      <div class="ui-info-card">
-        <span>접속 기기</span>
-        <strong>${detectDeviceLabel()}</strong>
-      </div>
-    </section>
+    </div>
   `;
 }
 
@@ -591,48 +588,47 @@ function renderGameBoard() {
   const nextPreview = canPlay ? "?" : "--";
 
   return `
-    <section class="game-board ui-panel-image ${state.lastResult?.type ?? ""}">
-      <div class="card-table ui-panel-image">
+    <section class="game-board card-surface holo-border ${state.lastResult?.type ?? ""}">
+      <div class="card-table">
         <div class="card-slot">
           <span class="card-slot-label">숫자 범위</span>
-          <div class="playing-card ui-info-card">
-            <span class="card-number-sm">1-100</span>
+          <div class="playing-card card-back">
+            <span>1-100</span>
           </div>
         </div>
         <div class="card-slot card-slot-main">
           <span class="card-slot-label">현재 숫자</span>
-          <div class="playing-card ui-info-card playing-card-main">
-            <span id="current-number" class="current-number card-number">${currentNumber}</span>
+          <div class="playing-card card-face holo-border">
+            <span id="current-number" class="current-number holo-text">${currentNumber}</span>
           </div>
         </div>
         <div class="card-slot">
           <span class="card-slot-label">다음 숫자</span>
-          <div class="playing-card ui-info-card">
-            <span class="card-number-sm">${nextPreview}</span>
+          <div class="playing-card card-back card-next">
+            <span>${nextPreview}</span>
           </div>
         </div>
       </div>
 
       <div class="status-row">
-        <div class="ui-info-card">
+        <div class="status-chip status-balance">
           <span>소지금</span>
           <strong>${formatNumber(state.user?.points ?? 0)} P</strong>
         </div>
-        <div class="ui-info-card ${bettingAmount > 0 ? "active" : ""}">
+        <div class="status-chip status-bet ${bettingAmount > 0 ? "active" : ""}">
           <span>베팅금액</span>
-          <strong id="pending-points">${formatNumber(bettingAmount)} P</strong>
+          <strong id="pending-points" class="holo-text">${formatNumber(bettingAmount)} P</strong>
         </div>
-        <div class="ui-info-card">
+        <div class="status-chip status-streak">
           <span>연승</span>
           <strong>${session?.currentStreak ?? 0}</strong>
         </div>
       </div>
 
-      <div class="bet-panel ui-panel-image">
+      <div class="bet-panel holo-border">
         <p class="bet-panel-title">베팅 · 맞출 때마다 배수 적용</p>
         <div class="bet-panel-row">
-          <div class="bet-amount-display ui-info-card">
-            <span>베팅금액</span>
+          <div class="bet-amount-display">
             <strong id="bet-display">${formatNumber(bettingAmount)} P</strong>
           </div>
           ${
@@ -665,23 +661,23 @@ function renderGameBoard() {
         canPlay
           ? `
         <div class="choice-row">
-          <button class="choice-card choice-up ui-panel-image" data-action="guess-up" data-busy-toggle="true">
+          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
             <span class="choice-label">업 ▲</span>
-            <div class="choice-face ui-info-card">
+            <div class="choice-face">
               <span>확률 ${upPercent}%</span>
               <strong>성공 시 x${upMult}</strong>
             </div>
           </button>
-          <div class="choice-card choice-tie choice-static ui-panel-image">
+          <div class="choice-card choice-tie choice-static">
             <span class="choice-label">동일 =</span>
-            <div class="choice-face ui-info-card">
+            <div class="choice-face">
               <span>확률 ${tiePercent}%</span>
               <strong>실패 처리</strong>
             </div>
           </div>
-          <button class="choice-card choice-down ui-panel-image" data-action="guess-down" data-busy-toggle="true">
+          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
             <span class="choice-label">다운 ▼</span>
-            <div class="choice-face ui-info-card">
+            <div class="choice-face">
               <span>확률 ${downPercent}%</span>
               <strong>성공 시 x${downMult}</strong>
             </div>
@@ -726,7 +722,6 @@ function renderApp() {
       </header>
 
       ${renderMainNav()}
-      ${renderSessionBar()}
 
       <main class="layout">
         <section class="main-column">
@@ -876,6 +871,10 @@ function bindGlobalEvents() {
       case "toggle-main-menu":
         state.showMainMenu = !state.showMainMenu;
         render();
+        if (state.showMainMenu) {
+          startSessionClock();
+          void loadSessionInfo();
+        }
         break;
       case "open-profile":
         state.showMainMenu = false;

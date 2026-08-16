@@ -1,0 +1,14 @@
+name = "1zuxm-game"
+main = "src/index.ts"
+compatibility_date = "2024-12-01"
+workers_dev = true
+
+[assets]
+directory = "../frontend/dist"
+binding = "ASSETS"
+not_found_handling = "single-page-application"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "1zuxm-db"
+database_id = "c646169d-53b0-468d-ac29-ac0818f0c42e"

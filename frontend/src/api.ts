@@ -1,0 +1,153 @@
+export interface PublicUser {
+  id: string;
+  nickname: string;
+  points: number;
+  maxStreak: number;
+  maxSessionGain: number;
+  gamesPlayed: number;
+  wins: number;
+  losses: number;
+  bonusClaimed: boolean;
+  createdAt: string;
+  rank: number | null;
+}
+
+export interface ActiveSession {
+  id: string;
+  currentNumber: number;
+  sessionPoints: number;
+  currentStreak: number;
+  isActive: boolean;
+}
+
+export interface BoardState {
+  currentNumber: number;
+  minNumber: number;
+  maxNumber: number;
+  probabilities: {
+    up: number;
+    down: number;
+    tie: number;
+  };
+  multipliers: {
+    up: number;
+    down: number;
+  };
+  rules: {
+    tieRule: string;
+    probabilityRule: string;
+    multiplierRule: string;
+    rewardRule: string;
+  };
+}
+
+export interface RankingEntry {
+  rank: number;
+  nickname: string;
+  points: number;
+  maxStreak: number;
+  maxSessionGain: number;
+}
+
+const TOKEN_KEY = "1zuxm_token";
+
+export function getToken(): string | null {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function setToken(token: string | null): void {
+  if (token) localStorage.setItem(TOKEN_KEY, token);
+  else localStorage.removeItem(TOKEN_KEY);
+}
+
+async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = getToken();
+  const headers = new Headers(options.headers);
+  headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const response = await fetch(path, { ...options, headers });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error ?? "요청 처리 중 오류가 발생했습니다.");
+  }
+
+  return data as T;
+}
+
+export const api = {
+  register(nickname: string, password: string) {
+    return request<{ token: string; user: PublicUser }>("/api/auth/register", {
+      method: "POST",
+      body: JSON.stringify({ nickname, password }),
+    });
+  },
+  login(nickname: string, password: string) {
+    return request<{ token: string; user: PublicUser }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ nickname, password }),
+    });
+  },
+  me() {
+    return request<{ user: PublicUser; activeSession: ActiveSession | null }>(
+      "/api/user/me"
+    );
+  },
+  claimBonus() {
+    return request<{ message: string; user: PublicUser }>("/api/user/bonus", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+  gameState() {
+    return request<{ activeSession: ActiveSession | null; board?: BoardState }>(
+      "/api/game/state"
+    );
+  },
+  startGame() {
+    return request<{
+      activeSession: ActiveSession | null;
+      board: BoardState;
+      message?: string;
+    }>("/api/game/start", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+  guess(choice: "UP" | "DOWN") {
+    return request<{
+      result: "WIN" | "LOSE" | "TIE";
+      previousNumber: number;
+      nextNumber: number;
+      choice: string;
+      gain?: number;
+      lostPoints?: number;
+      message?: string;
+      activeSession: ActiveSession | null;
+      board?: BoardState;
+      user?: PublicUser;
+    }>("/api/game/guess", {
+      method: "POST",
+      body: JSON.stringify({ choice }),
+    });
+  },
+  cashout() {
+    return request<{
+      message: string;
+      earned: number;
+      user: PublicUser;
+      activeSession: null;
+    }>("/api/game/cashout", {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+  },
+  rankings() {
+    return request<{
+      rankings: RankingEntry[];
+      myRank: PublicUser | null;
+      updatedAt: string;
+    }>("/api/ranking");
+  },
+};

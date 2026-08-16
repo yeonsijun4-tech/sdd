@@ -1,14 +1,15 @@
 import { SignJWT, jwtVerify } from "jose";
 import { getJwtSecret } from "../db/client.js";
 
-const TOKEN_TTL = "7d";
-
-export async function signToken(userId: string): Promise<string> {
+export async function signToken(
+  userId: string,
+  rememberMe = true
+): Promise<string> {
   const key = new TextEncoder().encode(getJwtSecret());
   return new SignJWT({ sub: userId })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(TOKEN_TTL)
+    .setExpirationTime(rememberMe ? "30d" : "1d")
     .sign(key);
 }
 

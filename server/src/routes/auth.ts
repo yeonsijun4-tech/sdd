@@ -72,7 +72,7 @@ auth.post("/register", async (c) => {
       password_hash: passwordHash,
     });
 
-    const token = await signToken(userId);
+    const token = await signToken(userId, true);
     const user = await findUserById(userId);
     const rank = user ? await getUserRank(userId) : null;
 
@@ -87,13 +87,18 @@ auth.post("/register", async (c) => {
 });
 
 auth.post("/login", async (c) => {
-  const body = await readJsonBody<{ nickname?: string; password?: string }>(c);
+  const body = await readJsonBody<{
+    nickname?: string;
+    password?: string;
+    rememberMe?: boolean;
+  }>(c);
 
   if (!body) {
     return c.json({ error: "요청 형식이 올바르지 않습니다." }, 400);
   }
   const nickname = sanitizeNickname(body.nickname ?? "");
   const password = body.password ?? "";
+  const rememberMe = body.rememberMe !== false;
 
   const user = await findUserByNickname(nickname);
   if (!user || !(await verifyPassword(password, user.password_hash))) {
@@ -101,12 +106,13 @@ auth.post("/login", async (c) => {
   }
 
   try {
-    const token = await signToken(user.id);
+    const token = await signToken(user.id, rememberMe);
     const rank = await getUserRank(user.id);
 
     return c.json({
       token,
       user: publicUser(user, rank),
+      rememberMe,
     });
   } catch (error) {
     console.error("Login failed:", error);

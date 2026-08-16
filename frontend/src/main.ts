@@ -1,6 +1,9 @@
 import {
   api,
+  ApiError,
+  getRememberLogin,
   getToken,
+  setRememberLogin,
   setToken,
   type ActiveSession,
   type BoardState,
@@ -28,6 +31,9 @@ interface AppState {
   } | null;
   toast: string | null;
   toastType: "info" | "error";
+  activeModal: "profile" | "notice" | "patch" | null;
+  activeGame: "updown" | "oddeven";
+  rememberLogin: boolean;
 }
 
 const state: AppState = {
@@ -43,6 +49,9 @@ const state: AppState = {
   lastResult: null,
   toast: null,
   toastType: "info",
+  activeModal: null,
+  activeGame: "updown",
+  rememberLogin: getRememberLogin(),
 };
 
 let rankingTimer: number | null = null;
@@ -196,8 +205,10 @@ async function bootstrap() {
         const gameState = await api.gameState();
         state.board = gameState.board ?? null;
       }
-    } catch {
-      setToken(null);
+    } catch (error) {
+      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+        setToken(null);
+      }
     }
   }
 
@@ -287,6 +298,14 @@ function renderAuthModal() {
             <input name="password" type="password" minlength="6" maxlength="64" autocomplete="current-password" required />
           </label>
           ${captchaBlock}
+          <label class="remember-row">
+            <input
+              type="checkbox"
+              name="rememberMe"
+              ${state.rememberLogin ? "checked" : ""}
+            />
+            <span>로그인 유지</span>
+          </label>
           <button class="btn btn-primary holo-btn" type="submit" data-busy-toggle="true" ${state.isBusy ? "disabled" : ""}>
             ${state.authMode === "login" ? "로그인" : "가입하고 시작"}
           </button>
@@ -302,6 +321,94 @@ function renderAuthModal() {
         </div>
       </div>
     </div>
+  `;
+}
+
+function renderMainNav() {
+  return `
+    <nav class="main-nav card-surface holo-border" aria-label="메인 메뉴">
+      <button
+        class="nav-game nav-left ${state.activeGame === "oddeven" ? "active" : ""}"
+        type="button"
+        data-action="nav-oddeven"
+      >
+        홀짝
+      </button>
+      <div class="nav-center">
+        <button class="nav-menu-btn" type="button" data-action="open-profile">회원정보</button>
+        <button class="nav-menu-btn" type="button" data-action="open-notice">공지사항</button>
+        <button class="nav-menu-btn" type="button" data-action="open-patch">패치노트</button>
+      </div>
+      <button
+        class="nav-game nav-right ${state.activeGame === "updown" ? "active" : ""}"
+        type="button"
+        data-action="nav-updown"
+      >
+        업다운
+      </button>
+    </nav>
+  `;
+}
+
+function renderInfoModal() {
+  if (!state.activeModal || !state.user) return "";
+
+  const titles = {
+    profile: "회원정보",
+    notice: "공지사항",
+    patch: "패치노트",
+  } as const;
+
+  const bodies = {
+    profile: `
+      <div class="info-grid">
+        <div><span>닉네임</span><strong>${state.user.nickname}</strong></div>
+        <div><span>소지금</span><strong>${formatNumber(state.user.points)} P</strong></div>
+        <div><span>내 랭킹</span><strong>${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
+        <div><span>최고 연승</span><strong>${state.user.maxStreak}</strong></div>
+        <div><span>최고 획득</span><strong>${formatNumber(state.user.maxSessionGain)} P</strong></div>
+        <div><span>전적</span><strong>${state.user.wins}승 ${state.user.losses}패</strong></div>
+      </div>
+    `,
+    notice: `
+      <ul class="info-list">
+        <li>1zuxm은 가상 포인트만 사용하는 예측 게임입니다.</li>
+        <li>실제 money 거래, 환전, 출금 기능은 없습니다.</li>
+        <li>게임 중 그만하기를 눌러야 베팅금액이 소지금에 반영됩니다.</li>
+      </ul>
+    `,
+    patch: `
+      <ul class="info-list">
+        <li><strong>v1.2</strong> 카드형 UI, 상단 메뉴, 로그인 유지 추가</li>
+        <li><strong>v1.1</strong> 보안코드, 홀로그램 UI, Render 배포</li>
+        <li><strong>v1.0</strong> UP/DOWN 숫자 예측 게임 오픈</li>
+      </ul>
+    `,
+  } as const;
+
+  return `
+    <div class="modal-backdrop" data-action="close-modal">
+      <div class="modal card-surface holo-border info-modal" role="dialog" aria-modal="true">
+        <div class="modal-header info-modal-header">
+          <h2 class="holo-text">${titles[state.activeModal]}</h2>
+          <button class="modal-close" type="button" data-action="close-modal" aria-label="닫기">×</button>
+        </div>
+        <div class="info-modal-body">${bodies[state.activeModal]}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderOddEvenPlaceholder() {
+  return `
+    <section class="game-board card-surface holo-border coming-soon-board">
+      <div class="coming-soon-inner">
+        <span class="coming-soon-badge">COMING SOON</span>
+        <h2 class="holo-text">홀짝</h2>
+        <p class="text-readable">홀짝 게임은 준비 중입니다. 지금은 업다운을 이용해 주세요.</p>
+        <button class="btn btn-primary holo-btn" type="button" data-action="nav-updown">업다운으로 이동</button>
+      </div>
+    </section>
   `;
 }
 
@@ -374,33 +481,72 @@ function renderGameBoard() {
   const session = state.activeSession;
   const board = state.board;
   const currentNumber = board?.currentNumber ?? session?.currentNumber ?? "--";
-  const pendingPoints = session?.sessionPoints ?? 0;
+  const bettingAmount = session?.sessionPoints ?? 0;
   const canPlay = Boolean(session?.isActive);
-  const canCashout = canPlay && pendingPoints > 0;
+  const canCashout = canPlay && bettingAmount > 0;
+  const upPercent = board?.probabilities.up ?? 0;
+  const downPercent = board?.probabilities.down ?? 0;
+  const tiePercent = board?.probabilities.tie ?? 0;
+  const upMult = board?.multipliers.up ?? 0;
+  const downMult = board?.multipliers.down ?? 0;
+  const nextPreview = canPlay ? "?" : "--";
 
   return `
     <section class="game-board card-surface holo-border ${state.lastResult?.type ?? ""}">
-      <div class="board-top">
-        <div>
-          <p class="label">현재 숫자</p>
-          <div class="number-card holo-border">
+      <div class="card-table">
+        <div class="card-slot">
+          <span class="card-slot-label">숫자 범위</span>
+          <div class="playing-card card-back">
+            <span>1-100</span>
+          </div>
+        </div>
+        <div class="card-slot card-slot-main">
+          <span class="card-slot-label">현재 숫자</span>
+          <div class="playing-card card-face holo-border">
             <span id="current-number" class="current-number holo-text">${currentNumber}</span>
           </div>
         </div>
-        <div class="stats-grid">
-          <div><span>UP 확률</span><strong>${board ? `${board.probabilities.up}%` : "-"}</strong></div>
-          <div><span>DOWN 확률</span><strong>${board ? `${board.probabilities.down}%` : "-"}</strong></div>
-          <div><span>동일 숫자</span><strong>${board ? `${board.probabilities.tie}%` : "-"}</strong></div>
-          <div><span>UP 배수</span><strong class="holo-text">x${board?.multipliers.up ?? "-"}</strong></div>
-          <div><span>DOWN 배수</span><strong class="holo-text">x${board?.multipliers.down ?? "-"}</strong></div>
-          <div><span>현재 연승</span><strong class="holo-text">${session?.currentStreak ?? 0}</strong></div>
+        <div class="card-slot">
+          <span class="card-slot-label">다음 숫자</span>
+          <div class="playing-card card-back card-next">
+            <span>${nextPreview}</span>
+          </div>
         </div>
       </div>
 
-      <div class="pending-box ${pendingPoints > 0 ? "active" : ""}">
-        <span>현재 게임 미확정 포인트</span>
-        <strong id="pending-points" class="holo-text">${formatNumber(pendingPoints)} P</strong>
-        <small>그만하기를 누르기 전까지는 보유 포인트에 반영되지 않습니다.</small>
+      <div class="status-row">
+        <div class="status-chip status-balance">
+          <span>소지금</span>
+          <strong>${formatNumber(state.user?.points ?? 0)} P</strong>
+        </div>
+        <div class="status-chip status-bet ${bettingAmount > 0 ? "active" : ""}">
+          <span>베팅금액</span>
+          <strong id="pending-points" class="holo-text">${formatNumber(bettingAmount)} P</strong>
+        </div>
+        <div class="status-chip status-streak">
+          <span>연승</span>
+          <strong>${session?.currentStreak ?? 0}</strong>
+        </div>
+      </div>
+
+      <div class="bet-panel holo-border">
+        <p class="bet-panel-title">베팅 · 맞출 때마다 배수 적용</p>
+        <div class="bet-panel-row">
+          <div class="bet-amount-display">
+            <strong id="bet-display">${formatNumber(bettingAmount)} P</strong>
+          </div>
+          ${
+            canPlay
+              ? `<button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>`
+              : `<button class="btn btn-primary holo-btn" data-action="start-game" data-busy-toggle="true">새 게임 시작</button>`
+          }
+        </div>
+        <small>그만하기를 누르기 전까지 베팅금액은 소지금에 반영되지 않습니다.</small>
+        ${
+          state.user && state.user.points === 0 && !state.user.bonusClaimed && !canPlay
+            ? `<button class="btn btn-secondary bonus-btn" data-action="claim-bonus" data-busy-toggle="true">무료 100P 받기</button>`
+            : ""
+        }
       </div>
 
       ${
@@ -415,24 +561,35 @@ function renderGameBoard() {
           : ""
       }
 
-      <div class="action-row">
-        ${
-          canPlay
-            ? `
-          <button class="btn btn-up" data-action="guess-up" data-busy-toggle="true">UP</button>
-          <button class="btn btn-down" data-action="guess-down" data-busy-toggle="true">DOWN</button>
-          <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
-        `
-            : `
-          <button class="btn btn-primary holo-btn" data-action="start-game" data-busy-toggle="true">새 게임 시작</button>
-          ${
-            state.user && state.user.points === 0 && !state.user.bonusClaimed
-              ? `<button class="btn btn-secondary" data-action="claim-bonus" data-busy-toggle="true">무료 100P 받기</button>`
-              : ""
-          }
-        `
-        }
-      </div>
+      ${
+        canPlay
+          ? `
+        <div class="choice-row">
+          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
+            <span class="choice-label">업 ▲</span>
+            <div class="choice-face">
+              <span>확률 ${upPercent}%</span>
+              <strong>성공 시 x${upMult}</strong>
+            </div>
+          </button>
+          <div class="choice-card choice-tie choice-static">
+            <span class="choice-label">동일 =</span>
+            <div class="choice-face">
+              <span>확률 ${tiePercent}%</span>
+              <strong>실패 처리</strong>
+            </div>
+          </div>
+          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
+            <span class="choice-label">다운 ▼</span>
+            <div class="choice-face">
+              <span>확률 ${downPercent}%</span>
+              <strong>성공 시 x${downMult}</strong>
+            </div>
+          </button>
+        </div>
+      `
+          : ""
+      }
     </section>
   `;
 }
@@ -460,26 +617,24 @@ function renderApp() {
 
   app.innerHTML = `
     <div class="page-shell">
-      <header class="topbar card-surface holo-border">
+      <header class="site-header">
         <div class="brand">
           <span class="brand-mark holo-text">1ZUXM</span>
-          <span class="brand-sub">UP / DOWN</span>
+          <span class="brand-sub">${state.user.nickname}</span>
         </div>
-        <div class="user-stats">
-          <div><span>닉네임</span><strong>${state.user.nickname}</strong></div>
-          <div><span>보유 포인트</span><strong class="holo-text">${formatNumber(state.user.points)} P</strong></div>
-          <div><span>내 랭킹</span><strong class="holo-text">${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
-        </div>
-        <button class="btn btn-ghost" data-action="logout" type="button">로그아웃</button>
+        <button class="btn btn-ghost header-logout" data-action="logout" type="button">로그아웃</button>
       </header>
+
+      ${renderMainNav()}
 
       <main class="layout">
         <section class="main-column">
-          ${renderGameBoard()}
-          ${renderRules(state.board)}
+          ${state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()}
+          ${state.activeGame === "updown" ? renderRules(state.board) : ""}
         </section>
         ${renderRankingPanel()}
       </main>
+      ${renderInfoModal()}
       ${renderSiteFooter()}
     </div>
   `;
@@ -505,6 +660,9 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   const formData = new FormData(form);
   const nickname = String(formData.get("nickname") ?? "");
   const password = String(formData.get("password") ?? "");
+  const rememberMe = formData.get("rememberMe") === "on";
+  state.rememberLogin = rememberMe;
+  setRememberLogin(rememberMe);
 
   if (state.authMode === "register") {
     const captchaId = String(formData.get("captchaId") ?? "");
@@ -520,6 +678,8 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     }
 
     setToken(result.token);
+    setRememberLogin(true);
+    state.rememberLogin = true;
     state.user = result.user;
     state.activeSession = null;
     state.board = null;
@@ -529,10 +689,14 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     return;
   }
 
-  const result = await withBusy(async () => api.login(nickname, password));
+  const result = await withBusy(async () =>
+    api.login(nickname, password, rememberMe)
+  );
   if (!result) return;
 
   setToken(result.token);
+  setRememberLogin(rememberMe);
+  state.rememberLogin = rememberMe;
   state.user = result.user;
   state.activeSession = null;
   state.board = null;
@@ -582,9 +746,38 @@ function bindGlobalEvents() {
       return;
     }
 
+    if (action === "close-modal") {
+      const backdrop = target.closest(".modal-backdrop");
+      if (backdrop && target !== backdrop && !target.closest(".modal-close")) return;
+      event.preventDefault();
+      state.activeModal = null;
+      render();
+      return;
+    }
+
     event.preventDefault();
 
     switch (action) {
+      case "nav-updown":
+        state.activeGame = "updown";
+        render();
+        break;
+      case "nav-oddeven":
+        state.activeGame = "oddeven";
+        render();
+        break;
+      case "open-profile":
+        state.activeModal = "profile";
+        render();
+        break;
+      case "open-notice":
+        state.activeModal = "notice";
+        render();
+        break;
+      case "open-patch":
+        state.activeModal = "patch";
+        render();
+        break;
       case "set-login":
         void switchAuthMode("login");
         break;
@@ -597,6 +790,7 @@ function bindGlobalEvents() {
         state.activeSession = null;
         state.board = null;
         state.lastResult = null;
+        state.activeModal = null;
         render();
         break;
       case "start-game":
@@ -686,10 +880,15 @@ function animateNumberChange(from: number, to: number) {
 }
 
 function animatePointsGain(amount: number) {
-  const element = document.querySelector<HTMLElement>("#pending-points");
-  if (!element || amount <= 0) return;
-  element.classList.add("gain-pop");
-  window.setTimeout(() => element.classList.remove("gain-pop"), 600);
+  const targets = [
+    document.querySelector<HTMLElement>("#pending-points"),
+    document.querySelector<HTMLElement>("#bet-display"),
+  ];
+  for (const element of targets) {
+    if (!element || amount <= 0) continue;
+    element.classList.add("gain-pop");
+    window.setTimeout(() => element.classList.remove("gain-pop"), 600);
+  }
 }
 
 bootstrap();

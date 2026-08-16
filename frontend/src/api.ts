@@ -55,9 +55,27 @@ export interface CaptchaChallenge {
 }
 
 const TOKEN_KEY = "1zuxm_token";
+const REMEMBER_KEY = "1zuxm_remember";
+
+export class ApiError extends Error {
+  status: number;
+
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
+}
 
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
+}
+
+export function getRememberLogin(): boolean {
+  return localStorage.getItem(REMEMBER_KEY) !== "0";
+}
+
+export function setRememberLogin(remember: boolean): void {
+  localStorage.setItem(REMEMBER_KEY, remember ? "1" : "0");
 }
 
 export function setToken(token: string | null): void {
@@ -94,7 +112,10 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new Error(data.error ?? "요청 처리 중 오류가 발생했습니다.");
+    throw new ApiError(
+      data.error ?? "요청 처리 중 오류가 발생했습니다.",
+      response.status
+    );
   }
 
   return data as T;
@@ -115,11 +136,14 @@ export const api = {
       body: JSON.stringify({ nickname, password, captchaId, captchaAnswer }),
     });
   },
-  login(nickname: string, password: string) {
-    return request<{ token: string; user: PublicUser }>("/api/auth/login", {
-      method: "POST",
-      body: JSON.stringify({ nickname, password }),
-    });
+  login(nickname: string, password: string, rememberMe = true) {
+    return request<{ token: string; user: PublicUser; rememberMe?: boolean }>(
+      "/api/auth/login",
+      {
+        method: "POST",
+        body: JSON.stringify({ nickname, password, rememberMe }),
+      }
+    );
   },
   me() {
     return request<{ user: PublicUser; activeSession: ActiveSession | null }>(

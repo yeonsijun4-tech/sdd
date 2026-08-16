@@ -1,9 +1,11 @@
 import { DatabaseSync } from "node:sqlite";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { resolveDatabasePath, resolveSchemaPath } from "../lib/paths.js";
 
 let db: DatabaseSync | null = null;
+let runtimeJwtSecret: string | null = null;
 
 function initSchema(database: DatabaseSync) {
   const schema = fs.readFileSync(resolveSchemaPath(), "utf8");
@@ -25,12 +27,16 @@ export function getDb(): DatabaseSync {
 }
 
 export function getJwtSecret(): string {
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    if (process.env.NODE_ENV === "production") {
-      throw new Error("JWT_SECRET environment variable is required");
-    }
-    return "local-dev-secret-change-me";
+  if (process.env.JWT_SECRET) {
+    return process.env.JWT_SECRET;
   }
-  return secret;
+
+  if (!runtimeJwtSecret) {
+    runtimeJwtSecret = crypto.randomBytes(32).toString("hex");
+    console.warn(
+      "JWT_SECRET is not set. Using a temporary in-memory secret. Set JWT_SECRET in Render for stable sessions."
+    );
+  }
+
+  return runtimeJwtSecret;
 }

@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { getDb } from "./db/client.js";
+import { getDb, getJwtSecret } from "./db/client.js";
 import { resolvePublicDir } from "./lib/paths.js";
 import { optionalAuth, requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
@@ -14,8 +14,10 @@ const app = new Hono();
 
 try {
   getDb();
+  getJwtSecret();
+  console.log("Database and auth configuration ready");
 } catch (error) {
-  console.error("Database initialization failed:", error);
+  console.error("Startup initialization failed:", error);
   throw error;
 }
 

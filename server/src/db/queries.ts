@@ -84,17 +84,16 @@ export async function updateGameSession(
 }
 
 export async function getUserRank(userId: string): Promise<number | null> {
-  const row = getDb()
+  const rows = getDb()
     .prepare(
-      `SELECT rank FROM (
-         SELECT id, RANK() OVER (ORDER BY points DESC, max_streak DESC, created_at ASC) AS rank
-         FROM users
-       ) ranked
-       WHERE id = ?`
+      `SELECT id
+       FROM users
+       ORDER BY points DESC, max_streak DESC, created_at ASC`
     )
-    .get(userId) as { rank: number } | undefined;
+    .all() as Array<{ id: string }>;
 
-  return row?.rank ?? null;
+  const index = rows.findIndex((row) => row.id === userId);
+  return index === -1 ? null : index + 1;
 }
 
 export interface RankingRow {
@@ -109,7 +108,6 @@ export async function getRankings(limit = 20): Promise<RankingRow[]> {
   const rows = getDb()
     .prepare(
       `SELECT
-         RANK() OVER (ORDER BY points DESC, max_streak DESC, created_at ASC) AS rank,
          nickname,
          points,
          max_streak,
@@ -118,9 +116,15 @@ export async function getRankings(limit = 20): Promise<RankingRow[]> {
        ORDER BY points DESC, max_streak DESC, created_at ASC
        LIMIT ?`
     )
-    .all(limit);
+    .all(limit) as Array<Omit<RankingRow, "rank">>;
 
-  return rows as unknown as RankingRow[];
+  return rows.map((row, index) => ({
+    rank: index + 1,
+    nickname: row.nickname,
+    points: row.points,
+    max_streak: row.max_streak,
+    max_session_gain: row.max_session_gain,
+  }));
 }
 
 export async function incrementUserStats(

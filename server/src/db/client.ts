@@ -1,26 +1,9 @@
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolveDatabasePath, resolveSchemaPath } from "../lib/paths.js";
 
 let db: DatabaseSync | null = null;
-
-function resolveSchemaPath(): string {
-  if (process.env.SCHEMA_PATH) return process.env.SCHEMA_PATH;
-
-  const moduleDir = path.dirname(fileURLToPath(import.meta.url));
-  const candidates = [
-    path.join(process.cwd(), "schema.sql"),
-    path.join(moduleDir, "..", "schema.sql"),
-    path.join(moduleDir, "..", "..", "schema.sql"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(candidate)) return candidate;
-  }
-
-  throw new Error("schema.sql file not found");
-}
 
 function initSchema(database: DatabaseSync) {
   const schema = fs.readFileSync(resolveSchemaPath(), "utf8");
@@ -30,7 +13,7 @@ function initSchema(database: DatabaseSync) {
 export function getDb(): DatabaseSync {
   if (db) return db;
 
-  const dbPath = process.env.DATABASE_PATH ?? path.join(process.cwd(), "data", "game.db");
+  const dbPath = resolveDatabasePath();
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
 
   db = new DatabaseSync(dbPath);

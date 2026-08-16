@@ -6,11 +6,17 @@ services:
     region: singapore
     buildCommand: npm install && npm run build
     startCommand: npm run start
-    healthCheckPath: /
+    healthCheckPath: /api/health
     envVars:
       - key: NODE_VERSION
         value: 22.12.0
       - key: NODE_ENV
         value: production
+      - key: NODE_OPTIONS
+        value: --experimental-sqlite
+      - key: PUBLIC_DIR
+        value: frontend/dist
+      - key: DATABASE_PATH
+        value: data/game.db
       - key: JWT_SECRET
         generateValue: true

@@ -10,3 +10,4 @@ dist/
 .wrangler/
 .dev.vars
 server/data/
+data/

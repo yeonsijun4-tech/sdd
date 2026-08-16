@@ -207,13 +207,18 @@ async function bootstrap() {
 function renderSiteFooter() {
   return `
     <footer class="site-footer">
-      <span>MADE BY </span>
       <a
-        class="insta-holo"
+        class="creator-card"
         href="https://instagram.com/xvzeon"
         target="_blank"
         rel="noopener noreferrer"
-      >xvzeon_</a>
+        aria-label="xvzeon_ Instagram 프로필 열기"
+      >
+        <span class="creator-card-ring" aria-hidden="true"></span>
+        <span class="creator-card-label">MADE BY</span>
+        <span class="creator-card-handle">xvzeon_</span>
+        <span class="creator-card-action">Instagram</span>
+      </a>
     </footer>
   `;
 }

@@ -1,42 +1,39 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import fs from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { getDb } from "./db/client.js";
+import { resolvePublicDir } from "./lib/paths.js";
 import { optionalAuth, requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
 import gameRoutes from "./routes/game.js";
 import rankingRoutes from "./routes/ranking.js";
 import userRoutes from "./routes/user.js";
 
-function resolvePublicDir(): string {
-  if (process.env.PUBLIC_DIR) return process.env.PUBLIC_DIR;
-
-  const candidates = [
-    path.join(process.cwd(), "public"),
-    path.join(process.cwd(), "..", "frontend", "dist"),
-    path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "public"),
-  ];
-
-  for (const candidate of candidates) {
-    if (fs.existsSync(path.join(candidate, "index.html"))) {
-      return candidate;
-    }
-  }
-
-  throw new Error("Frontend build not found. Run npm run build --workspace=frontend");
-}
-
 const publicDir = resolvePublicDir();
 const app = new Hono();
 
-getDb();
+try {
+  getDb();
+} catch (error) {
+  console.error("Database initialization failed:", error);
+  throw error;
+}
+
+app.onError((error, c) => {
+  console.error(error);
+  return c.json({ error: "서버 내부 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." }, 500);
+});
 
 app.use("/api/*", async (c, next) => {
   c.header("Cache-Control", "no-store");
   await next();
+});
+
+app.get("/api/health", (c) => {
+  return c.json({
+    ok: true,
+    time: new Date().toISOString(),
+  });
 });
 
 app.route("/api/auth", authRoutes);
@@ -44,6 +41,7 @@ app.use("/api/user/*", requireAuth);
 app.route("/api/user", userRoutes);
 app.use("/api/game/*", requireAuth);
 app.route("/api/game", gameRoutes);
+app.use("/api/ranking/*", optionalAuth);
 app.use("/api/ranking", optionalAuth);
 app.route("/api/ranking", rankingRoutes);
 
@@ -53,6 +51,8 @@ app.get("/", serveStatic({ root: publicDir, path: "index.html" }));
 app.get("*", serveStatic({ root: publicDir, path: "index.html" }));
 
 const port = Number(process.env.PORT ?? 8080);
+
+console.log(`Serving frontend from ${publicDir}`);
 
 serve(
   {

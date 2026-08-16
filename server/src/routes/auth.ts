@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { createCaptcha, verifyCaptcha } from "../auth/captcha.js";
+import { readJsonBody } from "../lib/http.js";
 import {
   createId,
   hashPassword,
@@ -24,12 +25,16 @@ auth.get("/captcha", (c) => {
 });
 
 auth.post("/register", async (c) => {
-  const body = await c.req.json<{
+  const body = await readJsonBody<{
     nickname?: string;
     password?: string;
     captchaId?: string;
     captchaAnswer?: string;
-  }>();
+  }>(c);
+
+  if (!body) {
+    return c.json({ error: "요청 형식이 올바르지 않습니다." }, 400);
+  }
 
   const nickname = sanitizeNickname(body.nickname ?? "");
   const password = body.password ?? "";
@@ -77,7 +82,11 @@ auth.post("/register", async (c) => {
 });
 
 auth.post("/login", async (c) => {
-  const body = await c.req.json<{ nickname?: string; password?: string }>();
+  const body = await readJsonBody<{ nickname?: string; password?: string }>(c);
+
+  if (!body) {
+    return c.json({ error: "요청 형식이 올바르지 않습니다." }, 400);
+  }
   const nickname = sanitizeNickname(body.nickname ?? "");
   const password = body.password ?? "";
 

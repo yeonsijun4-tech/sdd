@@ -206,4 +206,7 @@ export const api = {
       updatedAt: string;
     }>("/api/ranking");
   },
+  sessionInfo() {
+    return request<{ ip: string; time: string }>("/api/session/info");
+  },
 };

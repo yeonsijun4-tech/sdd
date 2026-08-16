@@ -34,6 +34,8 @@ interface AppState {
   activeModal: "profile" | "notice" | "patch" | null;
   activeGame: "updown" | "oddeven";
   rememberLogin: boolean;
+  showMainMenu: boolean;
+  sessionIp: string;
 }
 
 const state: AppState = {
@@ -52,10 +54,67 @@ const state: AppState = {
   activeModal: null,
   activeGame: "updown",
   rememberLogin: getRememberLogin(),
+  showMainMenu: false,
+  sessionIp: "확인 중",
 };
 
 let rankingTimer: number | null = null;
+let sessionClockTimer: number | null = null;
 let eventsBound = false;
+
+function formatSessionTime(date = new Date()): string {
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+}
+
+function detectDeviceLabel(): string {
+  const ua = navigator.userAgent;
+  const device = /Mobile|Android|iPhone|iPad/i.test(ua) ? "Mobile" : "PC";
+  const os = /Windows/i.test(ua)
+    ? "Windows"
+    : /Mac OS X/i.test(ua)
+      ? "macOS"
+      : /Android/i.test(ua)
+        ? "Android"
+        : /iPhone|iPad/i.test(ua)
+          ? "iOS"
+          : "OS";
+  const browser = /Edg\//i.test(ua)
+    ? "Edge"
+    : /Chrome\//i.test(ua)
+      ? "Chrome"
+      : /Firefox\//i.test(ua)
+        ? "Firefox"
+        : /Safari\//i.test(ua)
+          ? "Safari"
+          : "Browser";
+  return `${device} · ${os} · ${browser}`;
+}
+
+function updateSessionClock() {
+  const element = document.querySelector<HTMLElement>("#session-time");
+  if (element) element.textContent = formatSessionTime();
+}
+
+function startSessionClock() {
+  updateSessionClock();
+  if (sessionClockTimer) return;
+  sessionClockTimer = window.setInterval(updateSessionClock, 1000);
+}
+
+async function loadSessionInfo() {
+  try {
+    const info = await api.sessionInfo();
+    state.sessionIp = info.ip;
+    const ipElement = document.querySelector<HTMLElement>("#session-ip");
+    if (ipElement) ipElement.textContent = info.ip;
+    updateSessionClock();
+  } catch {
+    state.sessionIp = "확인 불가";
+    const ipElement = document.querySelector<HTMLElement>("#session-ip");
+    if (ipElement) ipElement.textContent = state.sessionIp;
+  }
+}
 
 function formatNumber(value: number): string {
   return value.toLocaleString("ko-KR");
@@ -205,6 +264,9 @@ async function bootstrap() {
         const gameState = await api.gameState();
         state.board = gameState.board ?? null;
       }
+
+      void loadSessionInfo();
+      startSessionClock();
     } catch (error) {
       if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setToken(null);
@@ -326,27 +388,64 @@ function renderAuthModal() {
 
 function renderMainNav() {
   return `
-    <nav class="main-nav card-surface holo-border" aria-label="메인 메뉴">
-      <button
-        class="nav-game nav-left ${state.activeGame === "oddeven" ? "active" : ""}"
-        type="button"
-        data-action="nav-oddeven"
-      >
-        홀짝
-      </button>
-      <div class="nav-center">
-        <button class="nav-menu-btn" type="button" data-action="open-profile">회원정보</button>
-        <button class="nav-menu-btn" type="button" data-action="open-notice">공지사항</button>
-        <button class="nav-menu-btn" type="button" data-action="open-patch">패치노트</button>
+    <nav class="main-nav-image" aria-label="메인 메뉴">
+      <div class="main-nav-inner">
+        <button
+          class="nav-side-btn ${state.activeGame === "oddeven" ? "active" : ""}"
+          type="button"
+          data-action="nav-oddeven"
+        >
+          홀짝
+        </button>
+        <div class="nav-center-wrap">
+          <button
+            class="nav-main-btn"
+            type="button"
+            data-action="toggle-main-menu"
+            aria-expanded="${state.showMainMenu}"
+          >
+            메인메뉴
+          </button>
+          ${
+            state.showMainMenu
+              ? `
+            <div class="nav-dropdown ui-panel-image">
+              <button type="button" data-action="open-profile">회원정보</button>
+              <button type="button" data-action="open-notice">공지사항</button>
+              <button type="button" data-action="open-patch">패치노트</button>
+            </div>
+          `
+              : ""
+          }
+        </div>
+        <button
+          class="nav-side-btn ${state.activeGame === "updown" ? "active" : ""}"
+          type="button"
+          data-action="nav-updown"
+        >
+          업다운
+        </button>
       </div>
-      <button
-        class="nav-game nav-right ${state.activeGame === "updown" ? "active" : ""}"
-        type="button"
-        data-action="nav-updown"
-      >
-        업다운
-      </button>
     </nav>
+  `;
+}
+
+function renderSessionBar() {
+  return `
+    <section class="session-bar" aria-label="접속 정보">
+      <div class="ui-info-card">
+        <span>현재 시각</span>
+        <strong id="session-time">${formatSessionTime()}</strong>
+      </div>
+      <div class="ui-info-card">
+        <span>접속 IP</span>
+        <strong id="session-ip">${state.sessionIp}</strong>
+      </div>
+      <div class="ui-info-card">
+        <span>접속 기기</span>
+        <strong>${detectDeviceLabel()}</strong>
+      </div>
+    </section>
   `;
 }
 
@@ -492,47 +591,48 @@ function renderGameBoard() {
   const nextPreview = canPlay ? "?" : "--";
 
   return `
-    <section class="game-board card-surface holo-border ${state.lastResult?.type ?? ""}">
-      <div class="card-table">
+    <section class="game-board ui-panel-image ${state.lastResult?.type ?? ""}">
+      <div class="card-table ui-panel-image">
         <div class="card-slot">
           <span class="card-slot-label">숫자 범위</span>
-          <div class="playing-card card-back">
-            <span>1-100</span>
+          <div class="playing-card ui-info-card">
+            <span class="card-number-sm">1-100</span>
           </div>
         </div>
         <div class="card-slot card-slot-main">
           <span class="card-slot-label">현재 숫자</span>
-          <div class="playing-card card-face holo-border">
-            <span id="current-number" class="current-number holo-text">${currentNumber}</span>
+          <div class="playing-card ui-info-card playing-card-main">
+            <span id="current-number" class="current-number card-number">${currentNumber}</span>
           </div>
         </div>
         <div class="card-slot">
           <span class="card-slot-label">다음 숫자</span>
-          <div class="playing-card card-back card-next">
-            <span>${nextPreview}</span>
+          <div class="playing-card ui-info-card">
+            <span class="card-number-sm">${nextPreview}</span>
           </div>
         </div>
       </div>
 
       <div class="status-row">
-        <div class="status-chip status-balance">
+        <div class="ui-info-card">
           <span>소지금</span>
           <strong>${formatNumber(state.user?.points ?? 0)} P</strong>
         </div>
-        <div class="status-chip status-bet ${bettingAmount > 0 ? "active" : ""}">
+        <div class="ui-info-card ${bettingAmount > 0 ? "active" : ""}">
           <span>베팅금액</span>
-          <strong id="pending-points" class="holo-text">${formatNumber(bettingAmount)} P</strong>
+          <strong id="pending-points">${formatNumber(bettingAmount)} P</strong>
         </div>
-        <div class="status-chip status-streak">
+        <div class="ui-info-card">
           <span>연승</span>
           <strong>${session?.currentStreak ?? 0}</strong>
         </div>
       </div>
 
-      <div class="bet-panel holo-border">
+      <div class="bet-panel ui-panel-image">
         <p class="bet-panel-title">베팅 · 맞출 때마다 배수 적용</p>
         <div class="bet-panel-row">
-          <div class="bet-amount-display">
+          <div class="bet-amount-display ui-info-card">
+            <span>베팅금액</span>
             <strong id="bet-display">${formatNumber(bettingAmount)} P</strong>
           </div>
           ${
@@ -565,23 +665,23 @@ function renderGameBoard() {
         canPlay
           ? `
         <div class="choice-row">
-          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
+          <button class="choice-card choice-up ui-panel-image" data-action="guess-up" data-busy-toggle="true">
             <span class="choice-label">업 ▲</span>
-            <div class="choice-face">
+            <div class="choice-face ui-info-card">
               <span>확률 ${upPercent}%</span>
               <strong>성공 시 x${upMult}</strong>
             </div>
           </button>
-          <div class="choice-card choice-tie choice-static">
+          <div class="choice-card choice-tie choice-static ui-panel-image">
             <span class="choice-label">동일 =</span>
-            <div class="choice-face">
+            <div class="choice-face ui-info-card">
               <span>확률 ${tiePercent}%</span>
               <strong>실패 처리</strong>
             </div>
           </div>
-          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
+          <button class="choice-card choice-down ui-panel-image" data-action="guess-down" data-busy-toggle="true">
             <span class="choice-label">다운 ▼</span>
-            <div class="choice-face">
+            <div class="choice-face ui-info-card">
               <span>확률 ${downPercent}%</span>
               <strong>성공 시 x${downMult}</strong>
             </div>
@@ -626,6 +726,7 @@ function renderApp() {
       </header>
 
       ${renderMainNav()}
+      ${renderSessionBar()}
 
       <main class="layout">
         <section class="main-column">
@@ -685,6 +786,8 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     state.board = null;
     state.lastResult = null;
     showToast(`${result.user.nickname}님, 환영합니다.`);
+    void loadSessionInfo();
+    startSessionClock();
     render();
     return;
   }
@@ -702,6 +805,8 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   state.board = null;
   state.lastResult = null;
   showToast(`${result.user.nickname}님, 환영합니다.`);
+  void loadSessionInfo();
+  startSessionClock();
   render();
 }
 
@@ -760,21 +865,30 @@ function bindGlobalEvents() {
     switch (action) {
       case "nav-updown":
         state.activeGame = "updown";
+        state.showMainMenu = false;
         render();
         break;
       case "nav-oddeven":
         state.activeGame = "oddeven";
+        state.showMainMenu = false;
+        render();
+        break;
+      case "toggle-main-menu":
+        state.showMainMenu = !state.showMainMenu;
         render();
         break;
       case "open-profile":
+        state.showMainMenu = false;
         state.activeModal = "profile";
         render();
         break;
       case "open-notice":
+        state.showMainMenu = false;
         state.activeModal = "notice";
         render();
         break;
       case "open-patch":
+        state.showMainMenu = false;
         state.activeModal = "patch";
         render();
         break;

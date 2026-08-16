@@ -38,6 +38,20 @@ app.get("/api/health", (c) => {
   });
 });
 
+app.get("/api/session/info", (c) => {
+  const forwarded = c.req.header("x-forwarded-for");
+  const ip =
+    forwarded?.split(",")[0]?.trim() ||
+    c.req.header("x-real-ip") ||
+    c.req.header("cf-connecting-ip") ||
+    "확인 중";
+
+  return c.json({
+    ip,
+    time: new Date().toISOString(),
+  });
+});
+
 app.route("/api/auth", authRoutes);
 app.use("/api/user/*", requireAuth);
 app.route("/api/user", userRoutes);

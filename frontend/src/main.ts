@@ -34,7 +34,6 @@ interface AppState {
   activeModal: "profile" | "notice" | "patch" | null;
   activeGame: "updown" | "oddeven";
   rememberLogin: boolean;
-  showMainMenu: boolean;
   sessionIp: string;
 }
 
@@ -54,7 +53,6 @@ const state: AppState = {
   activeModal: null,
   activeGame: "updown",
   rememberLogin: getRememberLogin(),
-  showMainMenu: false,
   sessionIp: "확인 중",
 };
 
@@ -397,16 +395,6 @@ function renderMainNav() {
         >
           홀짝
         </button>
-        <div class="nav-center-wrap">
-          <button
-            class="nav-main-btn"
-            type="button"
-            data-action="toggle-main-menu"
-            aria-expanded="${state.showMainMenu}"
-          >
-            메인메뉴
-          </button>
-        </div>
         <button
           class="nav-side-btn nav-right ${state.activeGame === "updown" ? "active" : ""}"
           type="button"
@@ -415,7 +403,7 @@ function renderMainNav() {
           업다운
         </button>
       </div>
-      ${state.showMainMenu ? renderMainMenuPanel() : ""}
+      ${renderMainMenuPanel()}
     </nav>
   `;
 }
@@ -735,6 +723,9 @@ function renderApp() {
     </div>
   `;
   updateToast();
+  if (state.user) {
+    startSessionClock();
+  }
 }
 
 function render() {
@@ -860,34 +851,21 @@ function bindGlobalEvents() {
     switch (action) {
       case "nav-updown":
         state.activeGame = "updown";
-        state.showMainMenu = false;
         render();
         break;
       case "nav-oddeven":
         state.activeGame = "oddeven";
-        state.showMainMenu = false;
         render();
-        break;
-      case "toggle-main-menu":
-        state.showMainMenu = !state.showMainMenu;
-        render();
-        if (state.showMainMenu) {
-          startSessionClock();
-          void loadSessionInfo();
-        }
         break;
       case "open-profile":
-        state.showMainMenu = false;
         state.activeModal = "profile";
         render();
         break;
       case "open-notice":
-        state.showMainMenu = false;
         state.activeModal = "notice";
         render();
         break;
       case "open-patch":
-        state.showMainMenu = false;
         state.activeModal = "patch";
         render();
         break;

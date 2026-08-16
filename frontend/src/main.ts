@@ -570,7 +570,7 @@ function renderGameBoard() {
   const canStart = balance > 0;
 
   return `
-    <section class="game-board card-surface holo-border ${state.lastResult?.type ?? ""}">
+    <section class="game-board card-surface holo-border ${canPlay ? "" : "game-board--setup"} ${state.lastResult?.type ?? ""}">
       <div class="card-table">
         <div class="card-slot">
           <span class="card-slot-label">숫자 범위</span>
@@ -627,8 +627,7 @@ function renderGameBoard() {
             <h3 class="bet-input-title holo-text">베팅금액을 입력하세요</h3>
           </div>
           <p class="bet-input-guide">
-            게임을 시작하려면 <strong>아래 입력칸에 베팅할 금액(원)</strong>을 꼭 입력해야 합니다.
-            입력한 금액은 소지금에서 바로 차감되며, <strong>그만하기</strong>를 누르면 베팅금액이 소지금으로 돌아옵니다.
+            <strong>베팅금액(원)을 입력해야</strong> 게임을 시작할 수 있습니다. 입력 즉시 소지금에서 차감됩니다.
           </p>
           <label class="bet-input-label" for="bet-amount-input">베팅금액 (원)</label>
           <div class="bet-input-row">
@@ -744,7 +743,7 @@ function renderApp() {
   }
 
   app.innerHTML = `
-    <div class="page-shell">
+    <div class="page-shell game-page">
       <header class="site-header">
         <div class="brand">
           <span class="brand-mark holo-text">1ZUXM</span>

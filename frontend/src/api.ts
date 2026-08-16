@@ -49,6 +49,11 @@ export interface RankingEntry {
   maxSessionGain: number;
 }
 
+export interface CaptchaChallenge {
+  captchaId: string;
+  question: string;
+}
+
 const TOKEN_KEY = "1zuxm_token";
 
 export function getToken(): string | null {
@@ -66,8 +71,27 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   headers.set("Content-Type", "application/json");
   if (token) headers.set("Authorization", `Bearer ${token}`);
 
-  const response = await fetch(path, { ...options, headers });
-  const data = await response.json();
+  let response: Response;
+  try {
+    response = await fetch(path, { ...options, headers });
+  } catch {
+    throw new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+  }
+
+  const text = await response.text();
+  let data: { error?: string } = {};
+
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      throw new Error(
+        response.ok
+          ? "서버 응답을 처리할 수 없습니다."
+          : `서버 오류 (${response.status}). 잠시 후 다시 시도해 주세요.`
+      );
+    }
+  }
 
   if (!response.ok) {
     throw new Error(data.error ?? "요청 처리 중 오류가 발생했습니다.");
@@ -77,10 +101,18 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
 }
 
 export const api = {
-  register(nickname: string, password: string) {
+  captcha() {
+    return request<CaptchaChallenge>("/api/auth/captcha");
+  },
+  register(
+    nickname: string,
+    password: string,
+    captchaId: string,
+    captchaAnswer: string
+  ) {
     return request<{ token: string; user: PublicUser }>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ nickname, password }),
+      body: JSON.stringify({ nickname, password, captchaId, captchaAnswer }),
     });
   },
   login(nickname: string, password: string) {

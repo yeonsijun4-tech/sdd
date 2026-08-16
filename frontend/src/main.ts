@@ -4,6 +4,7 @@ import {
   setToken,
   type ActiveSession,
   type BoardState,
+  type CaptchaChallenge,
   type PublicUser,
   type RankingEntry,
 } from "./api";
@@ -17,6 +18,7 @@ interface AppState {
   rankingUpdatedAt: string;
   isBusy: boolean;
   authMode: "login" | "register";
+  captcha: CaptchaChallenge | null;
   lastResult: {
     type: "WIN" | "LOSE" | "TIE";
     previousNumber: number;
@@ -34,11 +36,13 @@ const state: AppState = {
   rankingUpdatedAt: "",
   isBusy: false,
   authMode: "login",
+  captcha: null,
   lastResult: null,
   toast: null,
 };
 
 let rankingTimer: number | null = null;
+let eventsBound = false;
 
 function formatNumber(value: number): string {
   return value.toLocaleString("ko-KR");
@@ -50,20 +54,36 @@ function showToast(message: string) {
   window.setTimeout(() => {
     state.toast = null;
     render();
-  }, 2800);
+  }, 3200);
+}
+
+function setBusy(isBusy: boolean) {
+  state.isBusy = isBusy;
+  document.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
+    if (button.dataset.busyToggle === "true") {
+      button.disabled = isBusy;
+    }
+  });
 }
 
 async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
-  state.isBusy = true;
-  render();
+  setBusy(true);
   try {
     return await task();
   } catch (error) {
     showToast(error instanceof Error ? error.message : "오류가 발생했습니다.");
     return null;
   } finally {
-    state.isBusy = false;
-    render();
+    setBusy(false);
+  }
+}
+
+async function loadCaptcha() {
+  try {
+    state.captcha = await api.captcha();
+  } catch (error) {
+    state.captcha = null;
+    showToast(error instanceof Error ? error.message : "보안코드를 불러오지 못했습니다.");
   }
 }
 
@@ -75,19 +95,25 @@ async function refreshRankings() {
     if (data.myRank && state.user) {
       state.user = data.myRank;
     }
-    render();
+    if (state.user) render();
   } catch {
-    // ranking failures should not block gameplay
+    // ranking failures should not block auth or gameplay
   }
 }
 
 async function bootstrap() {
+  bindGlobalEvents();
+
+  if (state.authMode === "register") {
+    await loadCaptcha();
+  }
+
   await refreshRankings();
   rankingTimer = window.setInterval(refreshRankings, 5000);
 
   if (getToken()) {
-    const result = await withBusy(async () => api.me());
-    if (result) {
+    try {
+      const result = await api.me();
       state.user = result.user;
       state.activeSession = result.activeSession;
 
@@ -95,19 +121,48 @@ async function bootstrap() {
         const gameState = await api.gameState();
         state.board = gameState.board ?? null;
       }
+    } catch {
+      setToken(null);
     }
   }
 
   render();
 }
 
+function renderToast() {
+  return state.toast ? `<div class="toast holo-text">${state.toast}</div>` : "";
+}
+
 function renderAuthModal() {
+  const captchaBlock =
+    state.authMode === "register"
+      ? `
+        <label>
+          <span>보안코드</span>
+          <div class="captcha-row">
+            <div class="captcha-box holo-text">${state.captcha?.question ?? "불러오는 중..."}</div>
+            <button class="btn btn-ghost captcha-refresh" type="button" data-action="refresh-captcha" data-busy-toggle="true">
+              새로고침
+            </button>
+          </div>
+          <input
+            name="captchaAnswer"
+            inputmode="numeric"
+            autocomplete="off"
+            placeholder="정답 입력"
+            required
+          />
+          <input type="hidden" name="captchaId" value="${state.captcha?.captchaId ?? ""}" />
+        </label>
+      `
+      : "";
+
   return `
     <div class="modal-backdrop">
-      <div class="modal card-surface">
+      <div class="modal card-surface holo-border">
         <div class="modal-header">
-          <h2>${state.authMode === "login" ? "로그인" : "회원가입"}</h2>
-          <p>가상 포인트만 사용하는 UP/DOWN 게임입니다. 실제 금전 거래는 없습니다.</p>
+          <h2 class="holo-text">${state.authMode === "login" ? "로그인" : "회원가입"}</h2>
+          <p>가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
         </div>
         <form id="auth-form" class="auth-form">
           <label>
@@ -118,13 +173,20 @@ function renderAuthModal() {
             <span>비밀번호</span>
             <input name="password" type="password" minlength="6" maxlength="64" autocomplete="current-password" required />
           </label>
-          <button class="btn btn-primary" type="submit" ${state.isBusy ? "disabled" : ""}>
+          ${captchaBlock}
+          <button class="btn btn-primary holo-btn" type="submit" data-busy-toggle="true" ${state.isBusy ? "disabled" : ""}>
             ${state.authMode === "login" ? "로그인" : "가입하고 시작"}
           </button>
         </form>
-        <button class="link-btn" id="toggle-auth-mode" type="button">
-          ${state.authMode === "login" ? "계정이 없나요? 회원가입" : "이미 계정이 있나요? 로그인"}
-        </button>
+        <div class="auth-switch-row">
+          <button class="link-btn holo-link ${state.authMode === "login" ? "active" : ""}" type="button" data-action="set-login">
+            로그인
+          </button>
+          <span class="auth-divider">|</span>
+          <button class="link-btn holo-link ${state.authMode === "register" ? "active" : ""}" type="button" data-action="set-register">
+            회원가입
+          </button>
+        </div>
       </div>
     </div>
   `;
@@ -133,8 +195,8 @@ function renderAuthModal() {
 function renderRules(board: BoardState | null) {
   if (!board) return "";
   return `
-    <div class="rules card-surface">
-      <h3>확률 공개</h3>
+    <div class="rules card-surface holo-border">
+      <h3 class="holo-text">확률 공개</h3>
       <p>${board.rules.probabilityRule}</p>
       <p>${board.rules.multiplierRule}</p>
       <p>${board.rules.rewardRule}</p>
@@ -147,14 +209,14 @@ function renderRankingPanel() {
   const myRankText = state.user?.rank ? `#${state.user.rank}` : "-";
 
   return `
-    <aside class="ranking-panel card-surface">
+    <aside class="ranking-panel card-surface holo-border">
       <div class="panel-header">
-        <h2>실시간 랭킹</h2>
-        <span class="live-dot">LIVE</span>
+        <h2 class="holo-text">실시간 랭킹</h2>
+        <span class="live-dot holo-text">LIVE</span>
       </div>
       <div class="my-rank-box">
         <span>내 순위</span>
-        <strong>${myRankText}</strong>
+        <strong class="holo-text">${myRankText}</strong>
         <span>${state.user?.nickname ?? "게스트"}</span>
         <strong class="holo-text">${formatNumber(state.user?.points ?? 0)} P</strong>
       </div>
@@ -177,7 +239,7 @@ function renderRankingPanel() {
                     .map(
                       (row) => `
                 <tr class="${state.user?.nickname === row.nickname ? "is-me" : ""}">
-                  <td>#${row.rank}</td>
+                  <td class="holo-text">#${row.rank}</td>
                   <td>${row.nickname}</td>
                   <td>${formatNumber(row.points)}</td>
                   <td>${row.maxStreak}</td>
@@ -204,39 +266,21 @@ function renderGameBoard() {
   const canCashout = canPlay && pendingPoints > 0;
 
   return `
-    <section class="game-board card-surface ${state.lastResult?.type ?? ""}">
+    <section class="game-board card-surface holo-border ${state.lastResult?.type ?? ""}">
       <div class="board-top">
         <div>
           <p class="label">현재 숫자</p>
-          <div class="number-card">
-            <span id="current-number" class="current-number">${currentNumber}</span>
+          <div class="number-card holo-border">
+            <span id="current-number" class="current-number holo-text">${currentNumber}</span>
           </div>
         </div>
         <div class="stats-grid">
-          <div>
-            <span>UP 확률</span>
-            <strong>${board ? `${board.probabilities.up}%` : "-"}</strong>
-          </div>
-          <div>
-            <span>DOWN 확률</span>
-            <strong>${board ? `${board.probabilities.down}%` : "-"}</strong>
-          </div>
-          <div>
-            <span>동일 숫자</span>
-            <strong>${board ? `${board.probabilities.tie}%` : "-"}</strong>
-          </div>
-          <div>
-            <span>UP 배수</span>
-            <strong class="holo-text">x${board?.multipliers.up ?? "-"}</strong>
-          </div>
-          <div>
-            <span>DOWN 배수</span>
-            <strong class="holo-text">x${board?.multipliers.down ?? "-"}</strong>
-          </div>
-          <div>
-            <span>현재 연승</span>
-            <strong>${session?.currentStreak ?? 0}</strong>
-          </div>
+          <div><span>UP 확률</span><strong>${board ? `${board.probabilities.up}%` : "-"}</strong></div>
+          <div><span>DOWN 확률</span><strong>${board ? `${board.probabilities.down}%` : "-"}</strong></div>
+          <div><span>동일 숫자</span><strong>${board ? `${board.probabilities.tie}%` : "-"}</strong></div>
+          <div><span>UP 배수</span><strong class="holo-text">x${board?.multipliers.up ?? "-"}</strong></div>
+          <div><span>DOWN 배수</span><strong class="holo-text">x${board?.multipliers.down ?? "-"}</strong></div>
+          <div><span>현재 연승</span><strong class="holo-text">${session?.currentStreak ?? 0}</strong></div>
         </div>
       </div>
 
@@ -251,7 +295,7 @@ function renderGameBoard() {
           ? `
         <div class="result-banner ${state.lastResult.type.toLowerCase()}">
           <span>${state.lastResult.previousNumber} → ${state.lastResult.nextNumber}</span>
-          <strong>${state.lastResult.type === "WIN" ? "성공" : state.lastResult.type === "TIE" ? "동일 숫자" : "실패"}</strong>
+          <strong class="holo-text">${state.lastResult.type === "WIN" ? "성공" : state.lastResult.type === "TIE" ? "동일 숫자" : "실패"}</strong>
           ${state.lastResult.message ? `<p>${state.lastResult.message}</p>` : ""}
         </div>
       `
@@ -262,15 +306,15 @@ function renderGameBoard() {
         ${
           canPlay
             ? `
-          <button class="btn btn-up" data-action="guess-up" ${state.isBusy ? "disabled" : ""}>UP</button>
-          <button class="btn btn-down" data-action="guess-down" ${state.isBusy ? "disabled" : ""}>DOWN</button>
-          <button class="btn btn-cashout" data-action="cashout" ${!canCashout || state.isBusy ? "disabled" : ""}>그만하기</button>
+          <button class="btn btn-up" data-action="guess-up" data-busy-toggle="true">UP</button>
+          <button class="btn btn-down" data-action="guess-down" data-busy-toggle="true">DOWN</button>
+          <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
         `
             : `
-          <button class="btn btn-primary" data-action="start-game" ${state.isBusy ? "disabled" : ""}>새 게임 시작</button>
+          <button class="btn btn-primary holo-btn" data-action="start-game" data-busy-toggle="true">새 게임 시작</button>
           ${
             state.user && state.user.points === 0 && !state.user.bonusClaimed
-              ? `<button class="btn btn-secondary" data-action="claim-bonus" ${state.isBusy ? "disabled" : ""}>무료 100P 받기</button>`
+              ? `<button class="btn btn-secondary" data-action="claim-bonus" data-busy-toggle="true">무료 100P 받기</button>`
               : ""
           }
         `
@@ -289,28 +333,28 @@ function renderApp() {
       <div class="page-shell auth-page">
         <header class="topbar">
           <div class="brand">
-            <span class="brand-mark">1ZUXM</span>
+            <span class="brand-mark holo-text">1ZUXM</span>
             <span class="brand-sub">Virtual Point Game</span>
           </div>
         </header>
         ${renderAuthModal()}
       </div>
+      ${renderToast()}
     `;
-    bindAuthEvents();
     return;
   }
 
   app.innerHTML = `
     <div class="page-shell">
-      <header class="topbar card-surface">
+      <header class="topbar card-surface holo-border">
         <div class="brand">
-          <span class="brand-mark">1ZUXM</span>
+          <span class="brand-mark holo-text">1ZUXM</span>
           <span class="brand-sub">UP / DOWN</span>
         </div>
         <div class="user-stats">
           <div><span>닉네임</span><strong>${state.user.nickname}</strong></div>
           <div><span>보유 포인트</span><strong class="holo-text">${formatNumber(state.user.points)} P</strong></div>
-          <div><span>내 랭킹</span><strong>${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
+          <div><span>내 랭킹</span><strong class="holo-text">${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
         </div>
         <button class="btn btn-ghost" data-action="logout" type="button">로그아웃</button>
       </header>
@@ -323,31 +367,43 @@ function renderApp() {
         ${renderRankingPanel()}
       </main>
     </div>
-    ${state.toast ? `<div class="toast">${state.toast}</div>` : ""}
+    ${renderToast()}
   `;
-
-  bindGameEvents();
 }
 
 function render() {
   renderApp();
 }
 
-function bindAuthEvents() {
-  document.querySelector<HTMLFormElement>("#auth-form")?.addEventListener("submit", async (event) => {
-    event.preventDefault();
-    const form = event.currentTarget;
-    const formData = new FormData(form);
-    const nickname = String(formData.get("nickname") ?? "");
-    const password = String(formData.get("password") ?? "");
+async function switchAuthMode(mode: "login" | "register") {
+  state.authMode = mode;
+  if (mode === "register") {
+    await loadCaptcha();
+  } else {
+    state.captcha = null;
+  }
+  render();
+}
+
+async function handleAuthSubmit(form: HTMLFormElement) {
+  const formData = new FormData(form);
+  const nickname = String(formData.get("nickname") ?? "");
+  const password = String(formData.get("password") ?? "");
+
+  if (state.authMode === "register") {
+    const captchaId = String(formData.get("captchaId") ?? "");
+    const captchaAnswer = String(formData.get("captchaAnswer") ?? "");
 
     const result = await withBusy(async () =>
-      state.authMode === "login"
-        ? api.login(nickname, password)
-        : api.register(nickname, password)
+      api.register(nickname, password, captchaId, captchaAnswer)
     );
 
-    if (!result) return;
+    if (!result) {
+      await loadCaptcha();
+      render();
+      return;
+    }
+
     setToken(result.token);
     state.user = result.user;
     state.activeSession = null;
@@ -355,56 +411,103 @@ function bindAuthEvents() {
     state.lastResult = null;
     showToast(`${result.user.nickname}님, 환영합니다.`);
     render();
-  });
+    return;
+  }
 
-  document.querySelector("#toggle-auth-mode")?.addEventListener("click", () => {
-    state.authMode = state.authMode === "login" ? "register" : "login";
-    render();
-  });
+  const result = await withBusy(async () => api.login(nickname, password));
+  if (!result) return;
+
+  setToken(result.token);
+  state.user = result.user;
+  state.activeSession = null;
+  state.board = null;
+  state.lastResult = null;
+  showToast(`${result.user.nickname}님, 환영합니다.`);
+  render();
 }
 
-function bindGameEvents() {
-  document.querySelector('[data-action="logout"]')?.addEventListener("click", () => {
-    setToken(null);
-    state.user = null;
-    state.activeSession = null;
-    state.board = null;
-    state.lastResult = null;
-    render();
+function bindGlobalEvents() {
+  if (eventsBound) return;
+  eventsBound = true;
+
+  const app = document.querySelector("#app");
+  if (!app) return;
+
+  app.addEventListener("submit", (event) => {
+    const target = event.target;
+    if (!(target instanceof HTMLFormElement) || target.id !== "auth-form") return;
+    event.preventDefault();
+    void handleAuthSubmit(target);
   });
 
-  document.querySelector('[data-action="start-game"]')?.addEventListener("click", async () => {
-    const result = await withBusy(async () => api.startGame());
-    if (!result) return;
-    state.activeSession = result.activeSession;
-    state.board = result.board;
-    state.lastResult = null;
-    if (result.message) showToast(result.message);
-    render();
-  });
+  app.addEventListener("click", (event) => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
 
-  document.querySelector('[data-action="claim-bonus"]')?.addEventListener("click", async () => {
-    const result = await withBusy(async () => api.claimBonus());
-    if (!result) return;
-    state.user = result.user;
-    showToast(result.message);
-    render();
-  });
+    const button = target.closest<HTMLElement>("[data-action]");
+    if (!button) return;
 
-  document.querySelector('[data-action="guess-up"]')?.addEventListener("click", () => handleGuess("UP"));
-  document.querySelector('[data-action="guess-down"]')?.addEventListener("click", () => handleGuess("DOWN"));
+    const action = button.dataset.action;
+    if (!action) return;
 
-  document.querySelector('[data-action="cashout"]')?.addEventListener("click", async () => {
-    const result = await withBusy(async () => api.cashout());
-    if (!result) return;
-    state.user = result.user;
-    state.activeSession = null;
-    state.board = null;
-    state.lastResult = null;
-    animatePointsGain(result.earned);
-    showToast(result.message);
-    await refreshRankings();
-    render();
+    switch (action) {
+      case "set-login":
+        void switchAuthMode("login");
+        break;
+      case "set-register":
+        void switchAuthMode("register");
+        break;
+      case "refresh-captcha":
+        void loadCaptcha().then(() => render());
+        break;
+      case "logout":
+        setToken(null);
+        state.user = null;
+        state.activeSession = null;
+        state.board = null;
+        state.lastResult = null;
+        render();
+        break;
+      case "start-game":
+        void withBusy(async () => api.startGame()).then((result) => {
+          if (!result) return;
+          state.activeSession = result.activeSession;
+          state.board = result.board;
+          state.lastResult = null;
+          if (result.message) showToast(result.message);
+          render();
+        });
+        break;
+      case "claim-bonus":
+        void withBusy(async () => api.claimBonus()).then((result) => {
+          if (!result) return;
+          state.user = result.user;
+          showToast(result.message);
+          render();
+        });
+        break;
+      case "guess-up":
+        void handleGuess("UP");
+        break;
+      case "guess-down":
+        void handleGuess("DOWN");
+        break;
+      case "cashout":
+        void withBusy(async () => api.cashout()).then(async (result) => {
+          if (!result) return;
+          state.user = result.user;
+          state.activeSession = null;
+          state.board = null;
+          state.lastResult = null;
+          animatePointsGain(result.earned);
+          showToast(result.message);
+          await refreshRankings();
+          render();
+        });
+        break;
+      default:
+        break;
+    }
   });
 }
 
@@ -419,12 +522,9 @@ async function handleGuess(choice: "UP" | "DOWN") {
     message: result.message,
   };
 
-  animateNumberChange(result.previousNumber, result.nextNumber);
-
   if (result.result === "WIN") {
     state.activeSession = result.activeSession;
     state.board = result.board ?? null;
-    if (result.gain) animatePointsGain(result.gain);
     showToast(`성공! +${formatNumber(result.gain ?? 0)} P`);
   } else {
     state.activeSession = null;
@@ -435,6 +535,8 @@ async function handleGuess(choice: "UP" | "DOWN") {
   }
 
   render();
+  animateNumberChange(result.previousNumber, result.nextNumber);
+  if (result.result === "WIN" && result.gain) animatePointsGain(result.gain);
 }
 
 function animateNumberChange(from: number, to: number) {

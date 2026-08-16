@@ -1,4 +1,5 @@
 import { Hono } from "hono";
+import { createCaptcha, verifyCaptcha } from "../auth/captcha.js";
 import {
   createId,
   hashPassword,
@@ -18,10 +19,26 @@ import {
 
 const auth = new Hono();
 
+auth.get("/captcha", (c) => {
+  return c.json(createCaptcha());
+});
+
 auth.post("/register", async (c) => {
-  const body = await c.req.json<{ nickname?: string; password?: string }>();
+  const body = await c.req.json<{
+    nickname?: string;
+    password?: string;
+    captchaId?: string;
+    captchaAnswer?: string;
+  }>();
+
   const nickname = sanitizeNickname(body.nickname ?? "");
   const password = body.password ?? "";
+  const captchaId = body.captchaId ?? "";
+  const captchaAnswer = String(body.captchaAnswer ?? "").trim();
+
+  if (!verifyCaptcha(captchaId, captchaAnswer)) {
+    return c.json({ error: "보안코드가 올바르지 않거나 만료되었습니다." }, 400);
+  }
 
   if (!isValidNickname(nickname)) {
     return c.json(

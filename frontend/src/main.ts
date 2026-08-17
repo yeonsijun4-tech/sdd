@@ -125,7 +125,19 @@ function formatMoney(value: number): string {
 const GAME_MIN_NUMBER = 2;
 const GAME_MAX_NUMBER = 10;
 
-const POKER_RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
+const POKER_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
+
+const NUMBER_TO_POKER_RANK: Record<number, string> = {
+  2: "A",
+  3: "2",
+  4: "3",
+  5: "4",
+  6: "5",
+  7: "J",
+  8: "Q",
+  9: "K",
+  10: "10",
+};
 
 const POKER_SUITS = [
   { symbol: "♠", color: "black" },
@@ -135,6 +147,9 @@ const POKER_SUITS = [
 ] as const;
 
 function getPokerRank(number: number): string {
+  if (NUMBER_TO_POKER_RANK[number]) {
+    return NUMBER_TO_POKER_RANK[number];
+  }
   if (number >= GAME_MIN_NUMBER && number <= GAME_MAX_NUMBER) {
     return String(number);
   }
@@ -202,7 +217,7 @@ function renderPokerRangeCard() {
   return `
     <div class="playing-card poker-card poker-card-range poker-card-black" title="숫자 2~10">
       <div class="poker-corner poker-corner-tl">
-        <span class="poker-rank">2</span>
+        <span class="poker-rank">A</span>
         <span class="poker-suit">♠</span>
       </div>
       <div class="poker-center poker-center-deck">
@@ -212,7 +227,7 @@ function renderPokerRangeCard() {
         <span class="poker-deck-suit">♣</span>
       </div>
       <div class="poker-corner poker-corner-br">
-        <span class="poker-rank">10</span>
+        <span class="poker-rank">K</span>
         <span class="poker-suit">♣</span>
       </div>
     </div>

@@ -136,7 +136,11 @@ function getPokerRank(number: number): string {
 }
 
 function getPokerSuit(number: number) {
-  return POKER_SUITS[(number - 1) % POKER_SUITS.length];
+  return POKER_SUITS[Math.floor((number - 1) / 13) % POKER_SUITS.length];
+}
+
+function formatPokerCardLabel(number: number): string {
+  return `${getPokerRank(number)}${getPokerSuit(number).symbol}`;
 }
 
 function renderPokerFace(
@@ -167,9 +171,8 @@ function renderPokerFace(
         <span class="poker-suit">${suit.symbol}</span>
       </div>
       <div class="poker-center">
-        <span class="poker-center-value pop-target"${valueId}>${rank}</span>
+        <span class="poker-center-value pop-target${rank.length > 1 ? " poker-center-value-wide" : ""}"${valueId}>${rank}</span>
         <span class="poker-center-suit">${suit.symbol}</span>
-        <span class="poker-value-num">${parsed}</span>
       </div>
       <div class="poker-corner poker-corner-br">
         <span class="poker-rank">${rank}</span>
@@ -191,15 +194,16 @@ function renderPokerBack(label = "") {
 
 function renderPokerRangeCard() {
   return `
-    <div class="playing-card poker-card poker-card-range poker-card-black" title="숫자 1부터 100까지">
+    <div class="playing-card poker-card poker-card-range poker-card-black" title="숫자 1~100">
       <div class="poker-corner poker-corner-tl">
         <span class="poker-rank">A</span>
         <span class="poker-suit">♠</span>
       </div>
-      <div class="poker-center">
-        <span class="poker-center-value poker-range-label">1 ~ 100</span>
-        <span class="poker-range-sub">숫자 범위</span>
-        <span class="poker-center-suit poker-range-suits">♥ ♦ ♣</span>
+      <div class="poker-center poker-center-deck">
+        <span class="poker-deck-suit">♠</span>
+        <span class="poker-deck-suit poker-deck-red">♥</span>
+        <span class="poker-deck-suit poker-deck-red">♦</span>
+        <span class="poker-deck-suit">♣</span>
       </div>
       <div class="poker-corner poker-corner-br">
         <span class="poker-rank">K</span>
@@ -207,6 +211,17 @@ function renderPokerRangeCard() {
       </div>
     </div>
   `;
+}
+
+function updateCurrentNumberLabel(value: number | string) {
+  const label = document.querySelector<HTMLElement>("#current-number-label");
+  if (!label) return;
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    label.textContent = "현재 숫자";
+    return;
+  }
+  label.innerHTML = `현재 숫자 · <strong>${parsed}</strong> <span class="card-slot-poker">(${formatPokerCardLabel(parsed)})</span>`;
 }
 
 function applyPokerCardValue(card: HTMLElement, value: number) {
@@ -225,11 +240,13 @@ function applyPokerCardValue(card: HTMLElement, value: number) {
     }
   });
   const center = card.querySelector(".poker-center-value");
-  if (center) center.textContent = rank;
-  const centerSuit = card.querySelector(".poker-center-suit:not(.poker-range-suits)");
+  if (center) {
+    center.textContent = rank;
+    center.classList.toggle("poker-center-value-wide", rank.length > 1);
+  }
+  const centerSuit = card.querySelector(".poker-center-suit");
   if (centerSuit) centerSuit.textContent = suit.symbol;
-  const valueNum = card.querySelector(".poker-value-num");
-  if (valueNum) valueNum.textContent = String(value);
+  updateCurrentNumberLabel(value);
 }
 
 function showToast(message: string, type: "info" | "error" = "info") {
@@ -716,11 +733,11 @@ function renderGameBoard() {
     <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"}">
       <div class="card-table">
         <div class="card-slot">
-          <span class="card-slot-label">숫자 범위</span>
+          <span class="card-slot-label">숫자 범위 · 1~100</span>
           ${renderPokerRangeCard()}
         </div>
         <div class="card-slot card-slot-main">
-          <span class="card-slot-label">현재 숫자</span>
+          <span class="card-slot-label" id="current-number-label">현재 숫자 · <strong>${currentNumber}</strong>${Number.isFinite(Number(currentNumber)) ? ` <span class="card-slot-poker">(${formatPokerCardLabel(Number(currentNumber))})</span>` : ""}</span>
           ${renderPokerFace(currentNumber, {
             main: true,
             cardId: "current-poker-card",

@@ -22,18 +22,19 @@ export function clampNumber(value: number): number {
 }
 
 export function randomNumber(): number {
-  return Math.floor(Math.random() * MAX_NUMBER) + MIN_NUMBER;
+  return Math.floor(Math.random() * (MAX_NUMBER - MIN_NUMBER + 1)) + MIN_NUMBER;
 }
 
 export function calculateProbabilities(current: number): ProbabilityInfo {
   const safeCurrent = clampNumber(current);
+  const rangeSize = MAX_NUMBER - MIN_NUMBER + 1;
   const upWins = Math.max(0, MAX_NUMBER - safeCurrent);
   const downWins = Math.max(0, safeCurrent - MIN_NUMBER);
   const tie = 1;
 
-  const up = upWins / MAX_NUMBER;
-  const down = downWins / MAX_NUMBER;
-  const tieProb = tie / MAX_NUMBER;
+  const up = upWins / rangeSize;
+  const down = downWins / rangeSize;
+  const tieProb = tie / rangeSize;
 
   const upMultiplier = up > 0 ? roundMultiplier((1 - HOUSE_EDGE) / up) : 0;
   const downMultiplier = down > 0 ? roundMultiplier((1 - HOUSE_EDGE) / down) : 0;
@@ -102,7 +103,7 @@ export function buildProbabilityPayload(current: number) {
       tieRule:
         "다음 숫자가 현재 숫자와 같으면 UP/DOWN 모두 실패 처리되며, 해당 라운드의 베팅금액은 유지되지 않습니다.",
       probabilityRule:
-        "UP 확률 = (100 - 현재숫자) / 100, DOWN 확률 = (현재숫자 - 1) / 100, 동일 숫자 = 1 / 100",
+        `UP 확률 = (${MAX_NUMBER} - 현재숫자) / ${MAX_NUMBER - MIN_NUMBER + 1}, DOWN 확률 = (현재숫자 - ${MIN_NUMBER}) / ${MAX_NUMBER - MIN_NUMBER + 1}, 동일 숫자 = 1 / ${MAX_NUMBER - MIN_NUMBER + 1}`,
       multiplierRule: `성공 시 베팅금액이 항상 ${WIN_MULTIPLIER}배로 증가합니다.`,
       rewardRule: `성공 시 현재 베팅금액 × ${WIN_MULTIPLIER}가 적용됩니다.`,
     },

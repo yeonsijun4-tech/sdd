@@ -24,8 +24,8 @@ export interface GameSessionRow {
 
 export type GuessChoice = "UP" | "DOWN";
 
-export const MIN_NUMBER = 1;
-export const MAX_NUMBER = 100;
+export const MIN_NUMBER = 2;
+export const MAX_NUMBER = 10;
 export const WIN_MULTIPLIER = 2;
 export const HOUSE_EDGE = 0.03;
 export const STARTING_BALANCE = 10000;

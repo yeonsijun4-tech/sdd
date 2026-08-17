@@ -122,7 +122,10 @@ function formatMoney(value: number): string {
   return `${value.toLocaleString("ko-KR")}원`;
 }
 
-const POKER_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
+const GAME_MIN_NUMBER = 2;
+const GAME_MAX_NUMBER = 10;
+
+const POKER_RANKS = ["2", "3", "4", "5", "6", "7", "8", "9", "10"] as const;
 
 const POKER_SUITS = [
   { symbol: "♠", color: "black" },
@@ -132,11 +135,14 @@ const POKER_SUITS = [
 ] as const;
 
 function getPokerRank(number: number): string {
-  return POKER_RANKS[(number - 1) % POKER_RANKS.length];
+  if (number >= GAME_MIN_NUMBER && number <= GAME_MAX_NUMBER) {
+    return String(number);
+  }
+  return POKER_RANKS[(number - GAME_MIN_NUMBER) % POKER_RANKS.length];
 }
 
 function getPokerSuit(number: number) {
-  return POKER_SUITS[Math.floor((number - 1) / 13) % POKER_SUITS.length];
+  return POKER_SUITS[(number - GAME_MIN_NUMBER) % POKER_SUITS.length];
 }
 
 function formatPokerCardLabel(number: number): string {
@@ -194,9 +200,9 @@ function renderPokerBack(label = "") {
 
 function renderPokerRangeCard() {
   return `
-    <div class="playing-card poker-card poker-card-range poker-card-black" title="숫자 1~100">
+    <div class="playing-card poker-card poker-card-range poker-card-black" title="숫자 2~10">
       <div class="poker-corner poker-corner-tl">
-        <span class="poker-rank">A</span>
+        <span class="poker-rank">2</span>
         <span class="poker-suit">♠</span>
       </div>
       <div class="poker-center poker-center-deck">
@@ -206,7 +212,7 @@ function renderPokerRangeCard() {
         <span class="poker-deck-suit">♣</span>
       </div>
       <div class="poker-corner poker-corner-br">
-        <span class="poker-rank">K</span>
+        <span class="poker-rank">10</span>
         <span class="poker-suit">♣</span>
       </div>
     </div>
@@ -733,7 +739,7 @@ function renderGameBoard() {
     <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"}">
       <div class="card-table">
         <div class="card-slot">
-          <span class="card-slot-label">숫자 범위 · 1~100</span>
+          <span class="card-slot-label">숫자 범위 · 2~10</span>
           ${renderPokerRangeCard()}
         </div>
         <div class="card-slot card-slot-main">

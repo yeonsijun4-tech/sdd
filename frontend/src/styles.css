@@ -422,7 +422,7 @@ input {
 }
 
 .poker-rank {
-  font-family: "Orbitron", "Noto Sans KR", sans-serif;
+  font-family: Georgia, "Times New Roman", "Noto Serif KR", serif;
   font-size: clamp(0.62rem, 1.8vw, 0.88rem);
   font-weight: 700;
 }
@@ -444,7 +444,7 @@ input {
 }
 
 .poker-center-value {
-  font-family: "Orbitron", "Noto Sans KR", sans-serif;
+  font-family: Georgia, "Times New Roman", "Noto Serif KR", serif;
   font-size: clamp(1.35rem, 3.8vw, 2.15rem);
   font-weight: 700;
   line-height: 1;
@@ -455,9 +455,32 @@ input {
   line-height: 1;
 }
 
+.poker-value-num {
+  margin-top: 4px;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: clamp(0.58rem, 1.5vw, 0.72rem);
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.42);
+  letter-spacing: 0.02em;
+}
+
 .poker-range-label {
-  font-size: clamp(0.95rem, 2.6vw, 1.35rem);
-  letter-spacing: 0.04em;
+  font-family: "Noto Sans KR", sans-serif;
+  font-size: clamp(0.82rem, 2.2vw, 1rem);
+  letter-spacing: 0.02em;
+}
+
+.poker-range-sub {
+  font-size: clamp(0.58rem, 1.4vw, 0.68rem);
+  color: rgba(0, 0, 0, 0.45);
+  letter-spacing: 0.06em;
+}
+
+.poker-range-suits {
+  margin-top: 2px;
+  font-size: clamp(0.72rem, 1.8vw, 0.88rem);
+  letter-spacing: 0.18em;
+  color: rgba(0, 0, 0, 0.55);
 }
 
 .poker-card-back {

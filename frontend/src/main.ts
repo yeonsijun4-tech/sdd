@@ -120,6 +120,8 @@ function formatMoney(value: number): string {
   return `${value.toLocaleString("ko-KR")}원`;
 }
 
+const POKER_RANKS = ["A", "2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K"] as const;
+
 const POKER_SUITS = [
   { symbol: "♠", color: "black" },
   { symbol: "♥", color: "red" },
@@ -127,8 +129,12 @@ const POKER_SUITS = [
   { symbol: "♣", color: "black" },
 ] as const;
 
+function getPokerRank(number: number): string {
+  return POKER_RANKS[(number - 1) % POKER_RANKS.length];
+}
+
 function getPokerSuit(number: number) {
-  return POKER_SUITS[Math.abs(number - 1) % 4];
+  return POKER_SUITS[(number - 1) % POKER_SUITS.length];
 }
 
 function renderPokerFace(
@@ -141,13 +147,19 @@ function renderPokerFace(
   }
 
   const suit = getPokerSuit(parsed);
-  const rank = String(parsed);
+  const rank = getPokerRank(parsed);
   const mainClass = options.main ? " poker-card-main" : "";
   const cardId = options.cardId ? ` id="${options.cardId}"` : "";
   const valueId = options.valueId ? ` id="${options.valueId}"` : "";
 
   return `
-    <div class="playing-card poker-card poker-card-${suit.color}${mainClass}"${cardId} data-value="${parsed}">
+    <div
+      class="playing-card poker-card poker-card-${suit.color}${mainClass}"
+      ${cardId}
+      data-value="${parsed}"
+      title="숫자 ${parsed}"
+      aria-label="숫자 ${parsed}, ${rank}${suit.symbol}"
+    >
       <div class="poker-corner poker-corner-tl">
         <span class="poker-rank">${rank}</span>
         <span class="poker-suit">${suit.symbol}</span>
@@ -155,6 +167,7 @@ function renderPokerFace(
       <div class="poker-center">
         <span class="poker-center-value pop-target"${valueId}>${rank}</span>
         <span class="poker-center-suit">${suit.symbol}</span>
+        <span class="poker-value-num">${parsed}</span>
       </div>
       <div class="poker-corner poker-corner-br">
         <span class="poker-rank">${rank}</span>
@@ -176,17 +189,18 @@ function renderPokerBack(label = "") {
 
 function renderPokerRangeCard() {
   return `
-    <div class="playing-card poker-card poker-card-range poker-card-black">
+    <div class="playing-card poker-card poker-card-range poker-card-black" title="숫자 1부터 100까지">
       <div class="poker-corner poker-corner-tl">
-        <span class="poker-rank">1</span>
+        <span class="poker-rank">A</span>
         <span class="poker-suit">♠</span>
       </div>
       <div class="poker-center">
-        <span class="poker-center-value poker-range-label">1-100</span>
-        <span class="poker-center-suit">♣</span>
+        <span class="poker-center-value poker-range-label">1 ~ 100</span>
+        <span class="poker-range-sub">숫자 범위</span>
+        <span class="poker-center-suit poker-range-suits">♥ ♦ ♣</span>
       </div>
       <div class="poker-corner poker-corner-br">
-        <span class="poker-rank">100</span>
+        <span class="poker-rank">K</span>
         <span class="poker-suit">♣</span>
       </div>
     </div>
@@ -195,19 +209,25 @@ function renderPokerRangeCard() {
 
 function applyPokerCardValue(card: HTMLElement, value: number) {
   const suit = getPokerSuit(value);
-  const rank = String(value);
+  const rank = getPokerRank(value);
   card.className = `playing-card poker-card poker-card-${suit.color} poker-card-main`;
-  card.dataset.value = rank;
+  card.dataset.value = String(value);
+  card.title = `숫자 ${value}`;
+  card.setAttribute("aria-label", `숫자 ${value}, ${rank}${suit.symbol}`);
   card.querySelectorAll(".poker-rank").forEach((element) => {
     element.textContent = rank;
   });
   card.querySelectorAll(".poker-suit").forEach((element) => {
-    element.textContent = suit.symbol;
+    if (element.closest(".poker-corner")) {
+      element.textContent = suit.symbol;
+    }
   });
   const center = card.querySelector(".poker-center-value");
   if (center) center.textContent = rank;
-  const centerSuit = card.querySelector(".poker-center-suit");
+  const centerSuit = card.querySelector(".poker-center-suit:not(.poker-range-suits)");
   if (centerSuit) centerSuit.textContent = suit.symbol;
+  const valueNum = card.querySelector(".poker-value-num");
+  if (valueNum) valueNum.textContent = String(value);
 }
 
 function showToast(message: string, type: "info" | "error" = "info") {

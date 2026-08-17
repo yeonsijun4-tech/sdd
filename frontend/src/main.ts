@@ -116,6 +116,8 @@ async function loadSessionInfo() {
   }
 }
 
+const GAME_ICON = "/assets/1zuxm-icon.png";
+
 function formatMoney(value: number): string {
   return `${value.toLocaleString("ko-KR")}원`;
 }
@@ -294,6 +296,38 @@ function setBusy(isBusy: boolean) {
       button.disabled = isBusy;
     }
   });
+  updateBusyOverlay(isBusy);
+}
+
+function updateBusyOverlay(isBusy: boolean) {
+  const existing = document.querySelector(".busy-overlay");
+  if (!isBusy) {
+    existing?.remove();
+    return;
+  }
+  if (existing) return;
+
+  const overlay = document.createElement("div");
+  overlay.className = "busy-overlay";
+  overlay.innerHTML = `
+    <img src="${GAME_ICON}" alt="" class="busy-icon spin" width="72" height="72" />
+  `;
+  document.body.appendChild(overlay);
+}
+
+function playResultEffect(type: "WIN" | "LOSE" | "TIE") {
+  const flash = document.createElement("div");
+  flash.className = `result-flash result-flash-${type.toLowerCase()}`;
+  document.body.appendChild(flash);
+  window.setTimeout(() => flash.remove(), 900);
+
+  const board = document.querySelector(".game-board");
+  if (!board) return;
+  board.classList.remove("game-board--win", "game-board--lose", "game-board--tie");
+  board.classList.add(`game-board--${type.toLowerCase()}`);
+  window.setTimeout(() => {
+    board.classList.remove("game-board--win", "game-board--lose", "game-board--tie");
+  }, 1200);
 }
 
 async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
@@ -679,7 +713,7 @@ function renderGameBoard() {
   const canStart = balance > 0;
 
   return `
-    <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"} ${state.lastResult?.type ?? ""}">
+    <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"}">
       <div class="card-table">
         <div class="card-slot">
           <span class="card-slot-label">숫자 범위</span>
@@ -816,9 +850,10 @@ function renderGameBoard() {
       ${
         state.lastResult
           ? `
-        <div class="result-banner ${state.lastResult.type.toLowerCase()}">
+        <div class="result-banner result-banner-${state.lastResult.type.toLowerCase()}">
+          <span class="result-banner-icon">${state.lastResult.type === "WIN" ? "✦" : state.lastResult.type === "TIE" ? "=" : "✕"}</span>
           <span>${state.lastResult.previousNumber} → ${state.lastResult.nextNumber}</span>
-          <strong class="holo-text">${state.lastResult.type === "WIN" ? "성공" : state.lastResult.type === "TIE" ? "동일 숫자" : "실패"}</strong>
+          <strong class="result-banner-title">${state.lastResult.type === "WIN" ? "성공!" : state.lastResult.type === "TIE" ? "동일 숫자" : "실패"}</strong>
           ${state.lastResult.message ? `<p>${state.lastResult.message}</p>` : ""}
         </div>
       `
@@ -837,7 +872,10 @@ function renderApp() {
       <div class="page-shell auth-page">
         <header class="topbar">
           <div class="brand">
-            <span class="brand-mark holo-text">1ZUXM</span>
+            <div class="brand-row">
+              <img src="${GAME_ICON}" alt="" class="brand-icon" width="28" height="28" />
+              <span class="brand-mark holo-text">1ZUXM</span>
+            </div>
             <span class="brand-sub">Virtual Money Game</span>
           </div>
         </header>
@@ -853,7 +891,10 @@ function renderApp() {
     <div class="page-shell game-page${state.activeSession?.isActive ? " is-playing" : ""}">
       <header class="site-header">
         <div class="brand">
-          <span class="brand-mark holo-text">1ZUXM</span>
+          <div class="brand-row">
+            <img src="${GAME_ICON}" alt="" class="brand-icon" width="28" height="28" />
+            <span class="brand-mark holo-text">1ZUXM</span>
+          </div>
           <span class="brand-sub">${state.user.nickname}</span>
         </div>
         <button class="btn btn-ghost header-logout" data-action="logout" type="button">로그아웃</button>
@@ -1133,6 +1174,7 @@ async function handleGuess(choice: "UP" | "DOWN") {
   }
 
   render();
+  playResultEffect(result.result);
   animateNumberChange(result.previousNumber, result.nextNumber);
   if (result.result === "WIN" && result.gain) animatePointsGain(result.gain);
 }

@@ -7,6 +7,7 @@
       name="description"
       content="1zuxm - 가상 돈(원) 기반 UP/DOWN 숫자 예측 게임"
     />
+    <link rel="icon" type="image/png" href="/assets/1zuxm-icon.png" />
     <title>1zuxm | UP/DOWN</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -16,7 +17,12 @@
     />
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="boot-screen">
+        <img src="/assets/1zuxm-icon.png" alt="1ZUXM" class="boot-icon spin" width="96" height="96" />
+        <p class="boot-label holo-text">1ZUXM</p>
+      </div>
+    </div>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

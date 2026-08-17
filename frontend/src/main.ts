@@ -120,6 +120,96 @@ function formatMoney(value: number): string {
   return `${value.toLocaleString("ko-KR")}원`;
 }
 
+const POKER_SUITS = [
+  { symbol: "♠", color: "black" },
+  { symbol: "♥", color: "red" },
+  { symbol: "♦", color: "red" },
+  { symbol: "♣", color: "black" },
+] as const;
+
+function getPokerSuit(number: number) {
+  return POKER_SUITS[Math.abs(number - 1) % 4];
+}
+
+function renderPokerFace(
+  value: number | string,
+  options: { main?: boolean; cardId?: string; valueId?: string } = {}
+) {
+  const parsed = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(parsed)) {
+    return renderPokerBack(String(value));
+  }
+
+  const suit = getPokerSuit(parsed);
+  const rank = String(parsed);
+  const mainClass = options.main ? " poker-card-main" : "";
+  const cardId = options.cardId ? ` id="${options.cardId}"` : "";
+  const valueId = options.valueId ? ` id="${options.valueId}"` : "";
+
+  return `
+    <div class="playing-card poker-card poker-card-${suit.color}${mainClass}"${cardId} data-value="${parsed}">
+      <div class="poker-corner poker-corner-tl">
+        <span class="poker-rank">${rank}</span>
+        <span class="poker-suit">${suit.symbol}</span>
+      </div>
+      <div class="poker-center">
+        <span class="poker-center-value pop-target"${valueId}>${rank}</span>
+        <span class="poker-center-suit">${suit.symbol}</span>
+      </div>
+      <div class="poker-corner poker-corner-br">
+        <span class="poker-rank">${rank}</span>
+        <span class="poker-suit">${suit.symbol}</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderPokerBack(label = "") {
+  return `
+    <div class="playing-card poker-card poker-card-back">
+      <div class="poker-back-frame">
+        <div class="poker-back-inner">${label ? `<span>${label}</span>` : ""}</div>
+      </div>
+    </div>
+  `;
+}
+
+function renderPokerRangeCard() {
+  return `
+    <div class="playing-card poker-card poker-card-range poker-card-black">
+      <div class="poker-corner poker-corner-tl">
+        <span class="poker-rank">1</span>
+        <span class="poker-suit">♠</span>
+      </div>
+      <div class="poker-center">
+        <span class="poker-center-value poker-range-label">1-100</span>
+        <span class="poker-center-suit">♣</span>
+      </div>
+      <div class="poker-corner poker-corner-br">
+        <span class="poker-rank">100</span>
+        <span class="poker-suit">♣</span>
+      </div>
+    </div>
+  `;
+}
+
+function applyPokerCardValue(card: HTMLElement, value: number) {
+  const suit = getPokerSuit(value);
+  const rank = String(value);
+  card.className = `playing-card poker-card poker-card-${suit.color} poker-card-main`;
+  card.dataset.value = rank;
+  card.querySelectorAll(".poker-rank").forEach((element) => {
+    element.textContent = rank;
+  });
+  card.querySelectorAll(".poker-suit").forEach((element) => {
+    element.textContent = suit.symbol;
+  });
+  const center = card.querySelector(".poker-center-value");
+  if (center) center.textContent = rank;
+  const centerSuit = card.querySelector(".poker-center-suit");
+  if (centerSuit) centerSuit.textContent = suit.symbol;
+}
+
 function showToast(message: string, type: "info" | "error" = "info") {
   state.toast = message;
   state.toastType = type;
@@ -574,21 +664,19 @@ function renderGameBoard() {
       <div class="card-table">
         <div class="card-slot">
           <span class="card-slot-label">숫자 범위</span>
-          <div class="playing-card card-back">
-            <span>1-100</span>
-          </div>
+          ${renderPokerRangeCard()}
         </div>
         <div class="card-slot card-slot-main">
           <span class="card-slot-label">현재 숫자</span>
-          <div class="playing-card card-face holo-border">
-            <span id="current-number" class="current-number holo-text">${currentNumber}</span>
-          </div>
+          ${renderPokerFace(currentNumber, {
+            main: true,
+            cardId: "current-poker-card",
+            valueId: "current-number",
+          })}
         </div>
         <div class="card-slot">
           <span class="card-slot-label">다음 숫자</span>
-          <div class="playing-card card-back card-next">
-            <span>${nextPreview}</span>
-          </div>
+          ${renderPokerBack(nextPreview)}
         </div>
       </div>
 
@@ -1031,17 +1119,17 @@ async function handleGuess(choice: "UP" | "DOWN") {
 }
 
 function animateNumberChange(from: number, to: number) {
-  const element = document.querySelector<HTMLElement>("#current-number");
-  if (!element) return;
+  const card = document.querySelector<HTMLElement>("#current-poker-card");
+  if (!card) return;
 
-  element.classList.add("rolling");
-  element.textContent = String(from);
+  card.classList.add("rolling");
+  applyPokerCardValue(card, from);
 
   window.setTimeout(() => {
-    element.textContent = String(to);
-    element.classList.remove("rolling");
-    element.classList.add("pop");
-    window.setTimeout(() => element.classList.remove("pop"), 450);
+    applyPokerCardValue(card, to);
+    card.classList.remove("rolling");
+    card.classList.add("pop");
+    window.setTimeout(() => card.classList.remove("pop"), 450);
   }, 180);
 }
 

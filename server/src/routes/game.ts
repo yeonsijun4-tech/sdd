@@ -3,7 +3,7 @@ import { createId } from "../auth/crypto.js";
 import {
   buildProbabilityPayload,
   calculateProbabilities,
-  calculateRoundGain,
+  applyWinMultiplier,
   evaluateGuess,
   randomNumber,
 } from "../game/logic.js";
@@ -125,8 +125,7 @@ game.post("/guess", async (c) => {
   );
 
   if (result === "WIN") {
-    const gain = calculateRoundGain(choice as GuessChoice, probabilities);
-    const newSessionPoints = session.session_points + gain;
+    const { gain, total: newSessionPoints } = applyWinMultiplier(session.session_points);
     const newStreak = session.current_streak + 1;
 
     await updateGameSession(session.id, {

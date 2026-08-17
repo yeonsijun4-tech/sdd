@@ -175,13 +175,15 @@ input {
 
 .page-shell.game-page .site-footer {
   position: fixed;
-  left: 50%;
+  left: auto;
+  right: 12px;
   bottom: 10px;
-  transform: translateX(-50%);
+  transform: none;
   margin: 0;
   padding: 0;
   z-index: 20;
   pointer-events: none;
+  justify-content: flex-end;
 }
 
 .page-shell.game-page .creator-card {
@@ -192,6 +194,28 @@ input {
 
 .page-shell.game-page .game-board {
   padding-bottom: 88px;
+}
+
+.page-shell.game-page.is-playing .game-board {
+  padding-bottom: 128px;
+}
+
+.page-shell.game-page.is-playing .ranking-panel {
+  display: none;
+}
+
+@media (min-width: 1100px) {
+  .page-shell.game-page.is-playing .ranking-panel {
+    display: flex;
+  }
+
+  .page-shell.game-page.is-playing .choice-dock {
+    position: sticky;
+    bottom: 8px;
+    left: auto;
+    transform: none;
+    width: 100%;
+  }
 }
 
 .page-shell > .layout,
@@ -717,17 +741,84 @@ input {
   margin-top: 18px;
 }
 
+.choice-dock {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 108px;
+  width: min(calc(100% - 20px), 760px);
+  z-index: 30;
+  margin-top: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.game-board--playing .card-table {
+  padding: 12px;
+  gap: 10px;
+}
+
+.game-board--playing .status-row {
+  margin-top: 12px;
+  gap: 8px;
+}
+
+.game-board--playing .status-chip {
+  padding: 10px 12px;
+}
+
+.bet-panel-playing {
+  margin-top: 12px;
+  padding: 12px 14px;
+}
+
+.bet-panel-playing .bet-panel-title,
+.bet-panel-playing small {
+  display: none;
+}
+
+.bet-panel-playing .bet-panel-row {
+  margin: 0;
+}
+
+.game-board--playing .result-banner {
+  margin-top: 10px;
+  padding: 10px 12px;
+}
+
 .choice-card {
   border: 0;
   border-radius: 16px;
   padding: 12px;
-  min-height: 180px;
+  min-height: 118px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   cursor: pointer;
   color: white;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.choice-dock .choice-card {
+  min-height: 96px;
+  padding: 8px;
+  gap: 6px;
+}
+
+.choice-dock .choice-label {
+  font-size: 0.86rem;
+}
+
+.choice-dock .choice-face {
+  padding: 8px;
+  gap: 4px;
+}
+
+.choice-dock .choice-face span {
+  font-size: 0.72rem;
+}
+
+.choice-dock .choice-face strong {
+  font-size: 0.84rem;
 }
 
 .choice-card:hover:not(.choice-static) {
@@ -1269,9 +1360,9 @@ tr.is-me {
 
 .site-footer {
   margin-top: auto;
-  padding: 28px 0 12px;
+  padding: 28px 12px 12px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-end;
 }
 
 .creator-card {
@@ -1622,8 +1713,11 @@ tr.is-me {
     padding: 0 16px;
   }
 
-  .menu-info-row,
-  .choice-row {
+  .menu-info-row {
+    grid-template-columns: 1fr;
+  }
+
+  .choice-row:not(.choice-dock) {
     grid-template-columns: 1fr;
   }
 
@@ -1678,8 +1772,22 @@ tr.is-me {
     height: 84px;
   }
 
+  .page-shell.game-page .site-footer {
+    right: 8px;
+    bottom: 8px;
+  }
+
+  .choice-dock {
+    bottom: 98px;
+    width: calc(100% - 16px);
+  }
+
   .page-shell.game-page .game-board {
     padding-bottom: 76px;
+  }
+
+  .page-shell.game-page.is-playing .game-board {
+    padding-bottom: 118px;
   }
 
   .game-board,

@@ -652,15 +652,14 @@ function renderGameBoard() {
   const upPercent = board?.probabilities.up ?? 0;
   const downPercent = board?.probabilities.down ?? 0;
   const tiePercent = board?.probabilities.tie ?? 0;
-  const upMult = board?.multipliers.up ?? 0;
-  const downMult = board?.multipliers.down ?? 0;
+  const winMultiplier = 2;
   const nextPreview = canPlay ? "?" : "--";
   const balance = state.user?.points ?? 0;
   const presetAmounts = [1000, 5000, 10000].filter((amount) => amount <= balance);
   const canStart = balance > 0;
 
   return `
-    <section class="game-board card-surface holo-border ${canPlay ? "" : "game-board--setup"} ${state.lastResult?.type ?? ""}">
+    <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"} ${state.lastResult?.type ?? ""}">
       <div class="card-table">
         <div class="card-slot">
           <span class="card-slot-label">숫자 범위</span>
@@ -695,11 +694,41 @@ function renderGameBoard() {
         </div>
       </div>
 
-      <div class="bet-panel holo-border ${canPlay ? "bet-panel-active" : "bet-panel-setup"}">
+      ${
+        canPlay
+          ? `
+        <div class="choice-row choice-dock">
+          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
+            <span class="choice-label">업 ▲</span>
+            <div class="choice-face">
+              <span>확률 ${upPercent}%</span>
+              <strong>성공 시 x${winMultiplier}</strong>
+            </div>
+          </button>
+          <div class="choice-card choice-tie choice-static">
+            <span class="choice-label">동일 =</span>
+            <div class="choice-face">
+              <span>확률 ${tiePercent}%</span>
+              <strong>실패 처리</strong>
+            </div>
+          </div>
+          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
+            <span class="choice-label">다운 ▼</span>
+            <div class="choice-face">
+              <span>확률 ${downPercent}%</span>
+              <strong>성공 시 x${winMultiplier}</strong>
+            </div>
+          </button>
+        </div>
+      `
+          : ""
+      }
+
+      <div class="bet-panel holo-border ${canPlay ? "bet-panel-active bet-panel-playing" : "bet-panel-setup"}">
         ${
           canPlay
             ? `
-          <p class="bet-panel-title">진행 중 · 맞출 때마다 베팅금액에 보상이 더해집니다</p>
+          <p class="bet-panel-title">진행 중 · 맞출 때마다 베팅금액 ${winMultiplier}배</p>
           <div class="bet-panel-row">
             <div class="bet-amount-display">
               <span class="bet-amount-label">현재 베팅금액</span>
@@ -775,36 +804,6 @@ function renderGameBoard() {
       `
           : ""
       }
-
-      ${
-        canPlay
-          ? `
-        <div class="choice-row">
-          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
-            <span class="choice-label">업 ▲</span>
-            <div class="choice-face">
-              <span>확률 ${upPercent}%</span>
-              <strong>성공 시 x${upMult}</strong>
-            </div>
-          </button>
-          <div class="choice-card choice-tie choice-static">
-            <span class="choice-label">동일 =</span>
-            <div class="choice-face">
-              <span>확률 ${tiePercent}%</span>
-              <strong>실패 처리</strong>
-            </div>
-          </div>
-          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
-            <span class="choice-label">다운 ▼</span>
-            <div class="choice-face">
-              <span>확률 ${downPercent}%</span>
-              <strong>성공 시 x${downMult}</strong>
-            </div>
-          </button>
-        </div>
-      `
-          : ""
-      }
     </section>
   `;
 }
@@ -831,7 +830,7 @@ function renderApp() {
   }
 
   app.innerHTML = `
-    <div class="page-shell game-page">
+    <div class="page-shell game-page${state.activeSession?.isActive ? " is-playing" : ""}">
       <header class="site-header">
         <div class="brand">
           <span class="brand-mark holo-text">1ZUXM</span>
@@ -1104,7 +1103,7 @@ async function handleGuess(choice: "UP" | "DOWN") {
   if (result.result === "WIN") {
     state.activeSession = result.activeSession;
     state.board = result.board ?? null;
-    showToast(`성공! +${formatMoney(result.gain ?? 0)}`);
+    showToast(`성공! 베팅금액 2배 · ${formatMoney((result.gain ?? 0) * 2)}`);
   } else {
     state.activeSession = null;
     state.board = null;

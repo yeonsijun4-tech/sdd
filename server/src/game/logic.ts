@@ -1,8 +1,8 @@
 import {
-  BASE_REWARD,
   HOUSE_EDGE,
   MAX_NUMBER,
   MIN_NUMBER,
+  WIN_MULTIPLIER,
   type GuessChoice,
 } from "../types.js";
 
@@ -68,13 +68,19 @@ export function evaluateGuess(
   return next < current ? "WIN" : "LOSE";
 }
 
-export function calculateRoundGain(
-  choice: GuessChoice,
-  probabilities: ProbabilityInfo
-): number {
-  const multiplier =
-    choice === "UP" ? probabilities.upMultiplier : probabilities.downMultiplier;
-  return Math.max(1, Math.floor(BASE_REWARD * multiplier));
+export function calculateRoundGain(sessionPoints: number): number {
+  return sessionPoints;
+}
+
+export function applyWinMultiplier(sessionPoints: number): {
+  gain: number;
+  total: number;
+} {
+  const gain = calculateRoundGain(sessionPoints);
+  return {
+    gain,
+    total: sessionPoints * WIN_MULTIPLIER,
+  };
 }
 
 export function buildProbabilityPayload(current: number) {
@@ -89,16 +95,16 @@ export function buildProbabilityPayload(current: number) {
       tie: probabilities.tiePercent,
     },
     multipliers: {
-      up: probabilities.upMultiplier,
-      down: probabilities.downMultiplier,
+      up: WIN_MULTIPLIER,
+      down: WIN_MULTIPLIER,
     },
     rules: {
       tieRule:
         "다음 숫자가 현재 숫자와 같으면 UP/DOWN 모두 실패 처리되며, 해당 라운드의 베팅금액은 유지되지 않습니다.",
       probabilityRule:
         "UP 확률 = (100 - 현재숫자) / 100, DOWN 확률 = (현재숫자 - 1) / 100, 동일 숫자 = 1 / 100",
-      multiplierRule: `배수 = (1 - ${HOUSE_EDGE * 100}% 하우스 엣지) / 선택 확률`,
-      rewardRule: `성공 시 +floor(${BASE_REWARD} × 배수)원이 현재 게임 베팅금액에 누적됩니다.`,
+      multiplierRule: `성공 시 베팅금액이 항상 ${WIN_MULTIPLIER}배로 증가합니다.`,
+      rewardRule: `성공 시 현재 베팅금액 × ${WIN_MULTIPLIER}가 적용됩니다.`,
     },
   };
 }

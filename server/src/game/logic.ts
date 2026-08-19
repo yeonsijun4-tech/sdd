@@ -101,11 +101,11 @@ export function buildProbabilityPayload(current: number) {
     },
     rules: {
       tieRule:
-        "다음 숫자가 현재 숫자와 같으면 UP/DOWN 모두 실패 처리되며, 해당 라운드의 베팅금액은 유지되지 않습니다.",
+        "다음 숫자가 현재 숫자와 같으면 UP/DOWN 모두 실패 처리되며, 해당 라운드의 미확정 포인트는 유지되지 않습니다.",
       probabilityRule:
         `UP 확률 = (${MAX_NUMBER} - 현재숫자) / ${MAX_NUMBER - MIN_NUMBER + 1}, DOWN 확률 = (현재숫자 - ${MIN_NUMBER}) / ${MAX_NUMBER - MIN_NUMBER + 1}, 동일 숫자 = 1 / ${MAX_NUMBER - MIN_NUMBER + 1}`,
-      multiplierRule: `성공 시 베팅금액이 항상 ${WIN_MULTIPLIER}배로 증가합니다.`,
-      rewardRule: `성공 시 현재 베팅금액 × ${WIN_MULTIPLIER}가 적용됩니다.`,
+      multiplierRule: `성공 시 미확정 포인트가 항상 ${WIN_MULTIPLIER}배로 증가합니다.`,
+      rewardRule: `성공 시 현재 미확정 포인트 × ${WIN_MULTIPLIER}가 적용됩니다.`,
     },
   };
 }

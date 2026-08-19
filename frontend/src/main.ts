@@ -118,8 +118,8 @@ async function loadSessionInfo() {
 
 const GAME_ICON = "/assets/1zuxm-icon.png";
 
-function formatMoney(value: number): string {
-  return `${value.toLocaleString("ko-KR")}원`;
+function formatPoints(value: number): string {
+  return `${value.toLocaleString("ko-KR")}P`;
 }
 
 const GAME_MIN_NUMBER = 2;
@@ -530,7 +530,7 @@ function renderAuthModal() {
       <div class="modal card-surface holo-border">
         <div class="modal-header">
           <h2 class="holo-text">${state.authMode === "login" ? "로그인" : "회원가입"}</h2>
-          <p class="text-readable">가상 돈만 사용하는 UP/DOWN 게임입니다.</p>
+          <p class="text-readable">가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
         </div>
         <form id="auth-form" class="auth-form">
           <label>
@@ -631,24 +631,25 @@ function renderInfoModal() {
     profile: `
       <div class="info-grid">
         <div><span>닉네임</span><strong>${state.user.nickname}</strong></div>
-        <div><span>소지금</span><strong>${formatMoney(state.user.points)}</strong></div>
+        <div><span>보유 포인트</span><strong>${formatPoints(state.user.points)}</strong></div>
         <div><span>내 랭킹</span><strong>${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
         <div><span>최고 연승</span><strong>${state.user.maxStreak}</strong></div>
-        <div><span>최고 획득</span><strong>${formatMoney(state.user.maxSessionGain)}</strong></div>
+        <div><span>최고 획득</span><strong>${formatPoints(state.user.maxSessionGain)}</strong></div>
         <div><span>전적</span><strong>${state.user.wins}승 ${state.user.losses}패</strong></div>
       </div>
     `,
     notice: `
       <ul class="info-list">
-        <li>1zuxm은 가상 돈만 사용하는 예측 게임입니다.</li>
+        <li>1zuxm은 가상 포인트만 사용하는 예측 게임입니다.</li>
         <li>실제 환전, 출금 기능은 없습니다.</li>
-        <li>게임 중 그만하기를 눌러야 베팅금액이 소지금에 반영됩니다.</li>
+        <li>게임 중 그만하기를 눌러야 미확정 포인트가 보유 포인트에 반영됩니다.</li>
       </ul>
     `,
     patch: `
       <ul class="info-list">
-        <li><strong>v1.4</strong> 확률 공개 제거, 베팅금액 직접 입력</li>
-        <li><strong>v1.3</strong> 포인트 → 원(돈) 표기, 시작 금액 10,000원</li>
+        <li><strong>v1.5</strong> 원(돈) 표기 → 포인트(P)로 변경</li>
+        <li><strong>v1.4</strong> 확률 공개 제거, 사용 포인트 직접 입력</li>
+        <li><strong>v1.3</strong> 포인트 → 원(돈) 표기 (v1.5에서 되돌림)</li>
         <li><strong>v1.2</strong> 카드형 UI, 상단 메뉴, 로그인 유지 추가</li>
         <li><strong>v1.1</strong> 보안코드, 홀로그램 UI, Render 배포</li>
         <li><strong>v1.0</strong> UP/DOWN 숫자 예측 게임 오픈</li>
@@ -695,7 +696,7 @@ function renderRankingPanel() {
         <span>내 순위</span>
         <strong class="holo-text">${myRankText}</strong>
         <span>${state.user?.nickname ?? "게스트"}</span>
-        <strong class="holo-text">${formatMoney(state.user?.points ?? 0)}</strong>
+        <strong class="holo-text">${formatPoints(state.user?.points ?? 0)}</strong>
       </div>
       <div class="ranking-table-wrap">
         <table>
@@ -718,9 +719,9 @@ function renderRankingPanel() {
                 <tr class="${state.user?.nickname === row.nickname ? "is-me" : ""}">
                   <td class="holo-text">#${row.rank}</td>
                   <td>${row.nickname}</td>
-                  <td>${formatMoney(row.points)}</td>
+                  <td>${formatPoints(row.points)}</td>
                   <td>${row.maxStreak}</td>
-                  <td>${formatMoney(row.maxSessionGain)}</td>
+                  <td>${formatPoints(row.maxSessionGain)}</td>
                 </tr>
               `
                     )
@@ -773,12 +774,12 @@ function renderGameBoard() {
 
       <div class="status-row">
         <div class="status-chip status-balance">
-          <span>소지금</span>
-          <strong>${formatMoney(state.user?.points ?? 0)}</strong>
+          <span>보유 포인트</span>
+          <strong>${formatPoints(state.user?.points ?? 0)}</strong>
         </div>
         <div class="status-chip status-bet ${bettingAmount > 0 ? "active" : ""}">
-          <span>베팅금액</span>
-          <strong id="pending-points" class="holo-text">${formatMoney(bettingAmount)}</strong>
+          <span>미확정 포인트</span>
+          <strong id="pending-points" class="holo-text">${formatPoints(bettingAmount)}</strong>
         </div>
         <div class="status-chip status-streak">
           <span>연승</span>
@@ -820,25 +821,25 @@ function renderGameBoard() {
         ${
           canPlay
             ? `
-          <p class="bet-panel-title">진행 중 · 맞출 때마다 베팅금액 ${winMultiplier}배</p>
+          <p class="bet-panel-title">진행 중 · 맞출 때마다 미확정 포인트 ${winMultiplier}배</p>
           <div class="bet-panel-row">
             <div class="bet-amount-display">
-              <span class="bet-amount-label">현재 베팅금액</span>
-              <strong id="bet-display">${formatMoney(bettingAmount)}</strong>
+              <span class="bet-amount-label">현재 미확정 포인트</span>
+              <strong id="bet-display">${formatPoints(bettingAmount)}</strong>
             </div>
             <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
           </div>
-          <small>그만하기를 누르면 베팅금액 전체가 소지금으로 들어옵니다. 실패하면 베팅금액을 잃습니다.</small>
+          <small>그만하기를 누르면 미확정 포인트 전체가 보유 포인트로 들어옵니다. 실패하면 미확정 포인트를 잃습니다.</small>
         `
             : `
           <div class="bet-input-header">
             <span class="bet-required-badge">필수 입력</span>
-            <h3 class="bet-input-title holo-text">베팅금액을 입력하세요</h3>
+            <h3 class="bet-input-title holo-text">사용할 포인트를 입력하세요</h3>
           </div>
           <p class="bet-input-guide">
-            <strong>베팅금액(원)을 입력해야</strong> 게임을 시작할 수 있습니다. 입력 즉시 소지금에서 차감됩니다.
+            <strong>포인트(P)를 입력해야</strong> 게임을 시작할 수 있습니다. 입력 즉시 보유 포인트에서 차감됩니다.
           </p>
-          <label class="bet-input-label" for="bet-amount-input">베팅금액 (원)</label>
+          <label class="bet-input-label" for="bet-amount-input">사용 포인트 (P)</label>
           <div class="bet-input-row">
             <input
               id="bet-amount-input"
@@ -851,9 +852,9 @@ function renderGameBoard() {
               value="${state.betInput}"
               ${canStart ? "" : "disabled"}
             />
-            <span class="bet-input-unit">원</span>
+            <span class="bet-input-unit">P</span>
           </div>
-          <p class="bet-input-hint">현재 소지금 ${formatMoney(balance)} · 1원 이상, 소지금 이하만 베팅 가능</p>
+          <p class="bet-input-hint">현재 보유 ${formatPoints(balance)} · 1P 이상, 보유 포인트 이하만 가능</p>
           ${
             presetAmounts.length > 0
               ? `
@@ -861,7 +862,7 @@ function renderGameBoard() {
               ${presetAmounts
                 .map(
                   (amount) =>
-                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}">${amount.toLocaleString("ko-KR")}원</button>`
+                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}">${amount.toLocaleString("ko-KR")}P</button>`
                 )
                 .join("")}
               ${
@@ -874,11 +875,11 @@ function renderGameBoard() {
               : ""
           }
           <button class="btn btn-primary holo-btn bet-start-btn" data-action="start-game" data-busy-toggle="true" ${canStart ? "" : "disabled"}>
-            베팅하고 게임 시작
+            포인트 사용하고 게임 시작
           </button>
           ${
             state.user && state.user.points === 0 && !state.user.bonusClaimed
-              ? `<button class="btn btn-secondary bonus-btn" data-action="claim-bonus" data-busy-toggle="true">무료 10,000원 받기</button>`
+              ? `<button class="btn btn-secondary bonus-btn" data-action="claim-bonus" data-busy-toggle="true">무료 10,000P 받기</button>`
               : ""
           }
         `
@@ -914,7 +915,7 @@ function renderApp() {
               <img src="${GAME_ICON}" alt="" class="brand-icon" width="28" height="28" />
               <span class="brand-mark holo-text">1ZUXM</span>
             </div>
-            <span class="brand-sub">Virtual Money Game</span>
+            <span class="brand-sub">Virtual Point Game</span>
           </div>
         </header>
         ${renderAuthModal()}
@@ -1128,7 +1129,7 @@ function bindGlobalEvents() {
       case "start-game": {
         const betAmount = getBetAmountFromInput();
         if (!betAmount || betAmount <= 0) {
-          showToast("베팅금액을 입력해 주세요. 게임 시작 전에 금액을 꼭 입력해야 합니다.", "error");
+          showToast("사용할 포인트를 입력해 주세요. 게임 시작 전에 포인트를 꼭 입력해야 합니다.", "error");
           const input = document.querySelector<HTMLInputElement>("#bet-amount-input");
           input?.classList.add("bet-input-error");
           input?.focus();
@@ -1142,7 +1143,7 @@ function bindGlobalEvents() {
           state.betInput = "";
           if (result.user) state.user = result.user;
           if (result.message) showToast(result.message);
-          else showToast(`${formatMoney(betAmount)} 베팅으로 게임을 시작했습니다.`);
+          else showToast(`${formatPoints(betAmount)} 포인트로 게임을 시작했습니다.`);
           render();
         });
         break;
@@ -1202,7 +1203,7 @@ async function handleGuess(choice: "UP" | "DOWN") {
   if (result.result === "WIN") {
     state.activeSession = result.activeSession;
     state.board = result.board ?? null;
-    showToast(`성공! 베팅금액 2배 · ${formatMoney((result.gain ?? 0) * 2)}`);
+    showToast(`성공! 미확정 포인트 2배 · ${formatPoints((result.gain ?? 0) * 2)}`);
   } else {
     state.activeSession = null;
     state.board = null;

@@ -56,7 +56,7 @@ game.post("/start", async (c) => {
   if (dbUser.points <= 0) {
     return c.json(
       {
-        error: "보유 금액이 없습니다. 무료 보너스를 받은 뒤 베팅금액을 입력해 주세요.",
+        error: "보유 포인트가 없습니다. 무료 보너스를 받은 뒤 사용할 포인트를 입력해 주세요.",
         needsBonus: dbUser.bonus_claimed === 0,
       },
       400
@@ -64,12 +64,12 @@ game.post("/start", async (c) => {
   }
 
   if (!Number.isFinite(betAmount) || betAmount <= 0) {
-    return c.json({ error: "베팅금액을 입력해 주세요. 1원 이상 입력해야 게임을 시작할 수 있습니다." }, 400);
+    return c.json({ error: "사용할 포인트를 입력해 주세요. 1P 이상 입력해야 게임을 시작할 수 있습니다." }, 400);
   }
 
   if (betAmount > dbUser.points) {
     return c.json(
-      { error: `베팅금액은 소지금(${dbUser.points.toLocaleString("ko-KR")}원) 이하여야 합니다.` },
+      { error: `사용 포인트는 보유 포인트(${dbUser.points.toLocaleString("ko-KR")}P) 이하여야 합니다.` },
       400
     );
   }
@@ -168,7 +168,7 @@ game.post("/guess", async (c) => {
     message:
       result === "TIE"
         ? "동일 숫자가 나와 UP/DOWN 모두 실패 처리되었습니다."
-        : "예측에 실패했습니다. 이번 게임의 베팅금액이 초기화됩니다.",
+        : "예측에 실패했습니다. 이번 게임의 미확정 포인트가 초기화됩니다.",
     activeSession: null,
     user: dbUser ? publicUser(dbUser, rank) : null,
   });
@@ -182,7 +182,7 @@ game.post("/cashout", async (c) => {
   }
 
   if (session.session_points <= 0) {
-    return c.json({ error: "확정할 베팅금액이 없습니다." }, 400);
+    return c.json({ error: "확정할 미확정 포인트가 없습니다." }, 400);
   }
 
   const earned = session.session_points;
@@ -200,7 +200,7 @@ game.post("/cashout", async (c) => {
   const rank = await getUserRank(userId);
 
   return c.json({
-    message: `${earned.toLocaleString("ko-KR")}원이 보유 금액에 추가되었습니다.`,
+    message: `${earned.toLocaleString("ko-KR")}P가 보유 포인트에 추가되었습니다.`,
     earned,
     user: dbUser ? publicUser(dbUser, rank) : null,
     activeSession: null,

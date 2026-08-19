@@ -1,5 +1,5 @@
 import type { GameSessionRow, UserRow } from "../types.js";
-import { STARTING_BALANCE } from "../types.js";
+import { STARTING_POINTS } from "../types.js";
 import { getDb } from "./client.js";
 
 export async function findUserById(userId: string): Promise<UserRow | null> {
@@ -24,7 +24,7 @@ export async function createUser(
       `INSERT INTO users (id, nickname, password_hash, points)
        VALUES (?, ?, ?, ?)`
     )
-    .run(user.id, user.nickname, user.password_hash, STARTING_BALANCE);
+    .run(user.id, user.nickname, user.password_hash, STARTING_POINTS);
 }
 
 export async function getActiveGameSession(userId: string): Promise<GameSessionRow | null> {

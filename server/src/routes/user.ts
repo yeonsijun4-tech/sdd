@@ -31,7 +31,7 @@ user.post("/bonus", async (c) => {
   if (!dbUser) return c.json({ error: "사용자를 찾을 수 없습니다." }, 404);
 
   if (dbUser.points > 0) {
-    return c.json({ error: "보유 금액이 0원일 때만 보너스를 받을 수 있습니다." }, 400);
+    return c.json({ error: "보유 포인트가 0P일 때만 보너스를 받을 수 있습니다." }, 400);
   }
 
   if (dbUser.bonus_claimed === 1) {
@@ -47,7 +47,7 @@ user.post("/bonus", async (c) => {
   const rank = await getUserRank(userId);
 
   return c.json({
-    message: `무료 보너스 ${BONUS_POINTS.toLocaleString("ko-KR")}원이 지급되었습니다.`,
+    message: `무료 보너스 ${BONUS_POINTS.toLocaleString("ko-KR")}P가 지급되었습니다.`,
     user: updated ? publicUser(updated, rank) : null,
   });
 });

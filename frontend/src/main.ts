@@ -420,7 +420,7 @@ async function refreshRankings() {
     if (data.myRank && state.user) {
       state.user = data.myRank;
     }
-    if (state.user) render();
+    render();
   } catch {
     // ranking failures should not block auth or gameplay
   }
@@ -712,7 +712,11 @@ function renderRankingPanel() {
           <tbody>
             ${
               state.rankings.length === 0
-                ? `<tr><td colspan="5" class="empty-row">랭킹 데이터를 불러오는 중...</td></tr>`
+                ? `<tr><td colspan="5" class="empty-row">${
+                    state.rankingUpdatedAt
+                      ? "등록된 플레이어가 없습니다."
+                      : "랭킹 데이터를 불러오는 중..."
+                  }</td></tr>`
                 : state.rankings
                     .map(
                       (row) => `
@@ -1003,7 +1007,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     showToast(`${result.user.nickname}님, 환영합니다.`);
     void loadSessionInfo();
     startSessionClock();
-    render();
+    await refreshRankings();
     return;
   }
 
@@ -1022,7 +1026,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   showToast(`${result.user.nickname}님, 환영합니다.`);
   void loadSessionInfo();
   startSessionClock();
-  render();
+  await refreshRankings();
 }
 
 function getBetAmountFromInput(): number {

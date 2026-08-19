@@ -1,29 +1,47 @@
-import { DatabaseSync } from "node:sqlite";
 import crypto from "node:crypto";
 import fs from "node:fs";
-import path from "node:path";
-import { resolveDatabasePath, resolveSchemaPath } from "../lib/paths.js";
+import pg from "pg";
+import { resolveSchemaPath } from "../lib/paths.js";
 
-let db: DatabaseSync | null = null;
+const { Pool } = pg;
+
+let pool: pg.Pool | null = null;
 let runtimeJwtSecret: string | null = null;
 
-function initSchema(database: DatabaseSync) {
-  const schema = fs.readFileSync(resolveSchemaPath(), "utf8");
-  database.exec(schema);
+function getSslConfig(): pg.ConnectionConfig["ssl"] {
+  if (process.env.DATABASE_SSL === "false") return undefined;
+  if (process.env.NODE_ENV === "production") {
+    return { rejectUnauthorized: false };
+  }
+  return undefined;
 }
 
-export function getDb(): DatabaseSync {
-  if (db) return db;
+export function getPool(): pg.Pool {
+  if (pool) return pool;
 
-  const dbPath = resolveDatabasePath();
-  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  const connectionString = process.env.DATABASE_URL;
+  if (!connectionString) {
+    throw new Error("DATABASE_URL is required");
+  }
 
-  db = new DatabaseSync(dbPath);
-  db.exec("PRAGMA journal_mode = WAL");
-  db.exec("PRAGMA foreign_keys = ON");
-  initSchema(db);
+  pool = new Pool({
+    connectionString,
+    ssl: getSslConfig(),
+  });
 
-  return db;
+  return pool;
+}
+
+export async function initDb(): Promise<void> {
+  const schema = fs.readFileSync(resolveSchemaPath(), "utf8");
+  await getPool().query(schema);
+}
+
+export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
+  text: string,
+  params: unknown[] = []
+): Promise<pg.QueryResult<T>> {
+  return getPool().query<T>(text, params);
 }
 
 export function getJwtSecret(): string {

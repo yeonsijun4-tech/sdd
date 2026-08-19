@@ -5,15 +5,17 @@
   "scripts": {
     "dev": "tsx watch src/index.ts",
     "build": "tsc && node --input-type=module -e \"import fs from 'node:fs'; fs.copyFileSync('schema.sql','dist/schema.sql');\"",
-    "start": "node --experimental-sqlite dist/index.js"
+    "start": "node dist/index.js"
   },
   "dependencies": {
     "@hono/node-server": "^1.14.3",
     "hono": "^4.7.4",
-    "jose": "^6.0.8"
+    "jose": "^6.0.8",
+    "pg": "^8.14.1"
   },
   "devDependencies": {
     "@types/node": "^22.13.10",
+    "@types/pg": "^8.11.11",
     "tsx": "^4.19.3",
     "typescript": "^5.7.3"
   }

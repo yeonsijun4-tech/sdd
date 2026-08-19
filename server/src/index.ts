@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { getDb, getJwtSecret } from "./db/client.js";
+import { getJwtSecret, initDb } from "./db/client.js";
 import { resolvePublicDir } from "./lib/paths.js";
 import { optionalAuth, requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
@@ -13,7 +13,7 @@ const publicDir = resolvePublicDir();
 const app = new Hono();
 
 try {
-  getDb();
+  await initDb();
   getJwtSecret();
   console.log("Database and auth configuration ready");
 } catch (error) {

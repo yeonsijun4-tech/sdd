@@ -11,6 +11,7 @@ import authRoutes from "./routes/auth.js";
 import gameRoutes from "./routes/game.js";
 import rankingRoutes from "./routes/ranking.js";
 import userRoutes from "./routes/user.js";
+import vaultRoutes from "./routes/vault.js";
 
 const publicDir = resolvePublicDir();
 const app = new Hono();
@@ -102,6 +103,8 @@ app.use("/api/user/*", requireAuth);
 app.route("/api/user", userRoutes);
 app.use("/api/game/*", requireAuth);
 app.route("/api/game", gameRoutes);
+app.use("/api/vault/*", requireAuth);
+app.route("/api/vault", vaultRoutes);
 app.use("/api/ranking/*", optionalAuth);
 app.route("/api/ranking", rankingRoutes);
 

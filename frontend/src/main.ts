@@ -36,7 +36,22 @@ interface AppState {
   lastErrorToastMessage: string;
   lastErrorToastAt: number;
   activeModal: "profile" | "notice" | "patch" | null;
-  activeGame: "updown" | "oddeven";
+  activeGame: "updown" | "oddeven" | "slot";
+  secretTapCount: number;
+  secretTapAt: number;
+  secretFlow: null | "confirm" | "code" | "twofa";
+  secretVaultUnlocked: boolean;
+  secretDraft: {
+    code: string;
+    twofa: string;
+  };
+  slotBetInput: string;
+  lastSlotSpin: {
+    reels: number[];
+    win: boolean;
+    payout: number;
+    message: string;
+  } | null;
   rememberLogin: boolean;
   sessionIp: string;
   onlineCount: number;
@@ -91,6 +106,16 @@ const state: AppState = {
   lastErrorToastAt: 0,
   activeModal: null,
   activeGame: "updown",
+  secretTapCount: 0,
+  secretTapAt: 0,
+  secretFlow: null,
+  secretVaultUnlocked: false,
+  secretDraft: {
+    code: "",
+    twofa: "",
+  },
+  slotBetInput: "1000000000000",
+  lastSlotSpin: null,
   rememberLogin: getRememberLogin(),
   sessionIp: "확인 중",
   onlineCount: 0,
@@ -422,6 +447,12 @@ function startPresenceTracking() {
 
 const MIN_CASHOUT_TURNS = 2;
 const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
+const SECRET_TAP_TARGET = 7;
+const SECRET_TAP_RESET_MS = 2500;
+const SECRET_ACCESS_CODE = "0313";
+const SECRET_2FA_CODE = "0313";
+const SLOT_MIN_MAX_SESSION_GAIN = 100_000_000;
+const SLOT_MIN_BET = 1_000_000_000_000;
 
 const PATCH_NOTES_V10_HTML = `
   <div class="patch-version-block patch-version-latest">
@@ -1406,6 +1437,183 @@ function renderRankingPanel() {
   `;
 }
 
+function resetSecretFlow() {
+  state.secretTapCount = 0;
+  state.secretTapAt = 0;
+  state.secretFlow = null;
+  state.secretDraft.code = "";
+  state.secretDraft.twofa = "";
+}
+
+function handleSecretHit() {
+  const now = Date.now();
+  if (now - state.secretTapAt > SECRET_TAP_RESET_MS) {
+    state.secretTapCount = 0;
+  }
+  state.secretTapAt = now;
+  state.secretTapCount += 1;
+
+  if (state.secretTapCount >= SECRET_TAP_TARGET) {
+    state.secretTapCount = 0;
+    state.secretFlow = "confirm";
+    render();
+  }
+}
+
+function renderSecretVaultModals() {
+  if (!state.user || !state.secretFlow) return "";
+
+  if (state.secretFlow === "confirm") {
+    return `
+      <div class="modal-backdrop secret-vault-backdrop">
+        <div class="modal card-surface holo-border secret-vault-modal">
+          <div class="modal-header">
+            <h2 class="secret-vault-title">ARE YOU SURE?</h2>
+          </div>
+          <div class="secret-vault-actions">
+            <button class="btn btn-primary holo-btn" type="button" data-action="secret-confirm-yes">YES</button>
+            <button class="btn btn-ghost" type="button" data-action="secret-confirm-no">NO</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (state.secretFlow === "code") {
+    return `
+      <div class="modal-backdrop secret-vault-backdrop">
+        <div class="modal card-surface holo-border secret-vault-modal">
+          <div class="modal-header">
+            <h2 class="holo-text">ACCESS CODE</h2>
+            <p class="text-readable">번호를 입력하세요.</p>
+          </div>
+          <form id="secret-code-form" class="auth-form" novalidate>
+            <label>
+              <span>번호</span>
+              <input
+                id="secret-code-input"
+                name="secretCode"
+                inputmode="numeric"
+                autocomplete="off"
+                maxlength="16"
+                value="${state.secretDraft.code}"
+              />
+            </label>
+            <button class="btn btn-primary holo-btn" type="button" data-action="secret-code-submit">확인</button>
+          </form>
+        </div>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="modal-backdrop secret-vault-backdrop">
+      <div class="modal card-surface holo-border secret-vault-modal">
+        <div class="modal-header">
+          <h2 class="holo-text">2차 인증</h2>
+          <p class="text-readable">2차 인증 번호를 입력하세요.</p>
+        </div>
+        <form id="secret-twofa-form" class="auth-form" novalidate>
+          <label>
+            <span>2차 인증</span>
+            <input
+              id="secret-twofa-input"
+              name="secretTwofa"
+              inputmode="numeric"
+              autocomplete="off"
+              maxlength="16"
+              value="${state.secretDraft.twofa}"
+            />
+          </label>
+          <button class="btn btn-primary holo-btn" type="button" data-action="secret-twofa-submit">확인</button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
+function canAccessSecretSlot(): boolean {
+  return (state.user?.maxSessionGain ?? 0) >= SLOT_MIN_MAX_SESSION_GAIN;
+}
+
+function renderSlotMachine() {
+  const balance = state.user?.points ?? 0;
+  const reels = state.lastSlotSpin?.reels ?? [1, 1, 1];
+  const canSpin = balance >= SLOT_MIN_BET;
+
+  return `
+    <section class="slot-machine card-surface holo-border">
+      <div class="slot-machine-header">
+        <h2 class="slot-machine-title holo-text">VAULT SLOTS</h2>
+        <button class="btn btn-ghost slot-exit-btn" type="button" data-action="slot-exit">나가기</button>
+      </div>
+      <p class="slot-machine-sub">
+        777 · x1000 · 30% · 최소 ${formatPoints(SLOT_MIN_BET)}
+      </p>
+      <div class="slot-reels ${state.isBusy ? "slot-reels-spinning" : ""}">
+        ${reels
+          .map(
+            (symbol) => `
+          <div class="slot-reel">
+            <span class="slot-symbol">${symbol}</span>
+          </div>
+        `
+          )
+          .join("")}
+      </div>
+      ${
+        state.lastSlotSpin
+          ? `<p class="slot-result ${state.lastSlotSpin.win ? "slot-result-win" : "slot-result-lose"}">${state.lastSlotSpin.message}</p>`
+          : ""
+      }
+      <div class="slot-bet-panel">
+        <label class="slot-bet-label">
+          <span>베팅 금액</span>
+          <input
+            id="slot-bet-input"
+            inputmode="numeric"
+            autocomplete="off"
+            value="${state.slotBetInput}"
+            ${state.isBusy ? "disabled" : ""}
+          />
+        </label>
+        <button
+          class="btn btn-primary holo-btn slot-spin-btn"
+          type="button"
+          data-action="slot-spin"
+          data-busy-toggle="true"
+          ${canSpin ? "" : "disabled"}
+        >
+          SPIN
+        </button>
+      </div>
+      <p class="slot-bet-hint">보유 ${formatPoints(balance)} · 최고 획득 ${formatPoints(state.user?.maxSessionGain ?? 0)}</p>
+    </section>
+  `;
+}
+
+async function unlockSecretVault() {
+  if (!canAccessSecretSlot()) {
+    showToast(
+      `최고 획득 ${formatPoints(SLOT_MIN_MAX_SESSION_GAIN)} 이상만 입장할 수 있습니다.`,
+      "error"
+    );
+    resetSecretFlow();
+    render();
+    return;
+  }
+
+  state.secretVaultUnlocked = true;
+  state.secretFlow = null;
+  state.activeGame = "slot";
+  state.lastSlotSpin = null;
+  if (!state.slotBetInput || Number(state.slotBetInput) < SLOT_MIN_BET) {
+    state.slotBetInput = String(SLOT_MIN_BET);
+  }
+  render();
+  showToast("VAULT SLOTS");
+}
+
 function renderGameBoard() {
   const session = state.activeSession;
   const board = state.board;
@@ -1618,17 +1826,34 @@ function renderApp() {
           </div>
           <span class="brand-sub">${renderNicknameWithDevBadge(state.user.nickname)}</span>
         </div>
-        <button class="btn btn-ghost header-logout" data-action="logout" type="button">로그아웃</button>
+        <div class="header-actions">
+          <button
+            type="button"
+            class="header-secret-hit"
+            data-action="secret-hit"
+            aria-hidden="true"
+            tabindex="-1"
+          ></button>
+          <button class="btn btn-ghost header-logout" data-action="logout" type="button">로그아웃</button>
+        </div>
       </header>
 
-      ${renderUpdateBanner()}
+      ${renderSecretVaultModals()}
 
-      ${renderMainNav()}
+      ${state.activeGame === "slot" ? "" : renderUpdateBanner()}
+
+      ${state.activeGame === "slot" ? "" : renderMainNav()}
 
       <main class="layout game-layout">
         <div class="layout-spacer" aria-hidden="true"></div>
         <section class="main-column game-center-column">
-          ${state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()}
+          ${
+            state.activeGame === "slot" && state.secretVaultUnlocked
+              ? renderSlotMachine()
+              : state.activeGame === "updown"
+                ? renderGameBoard()
+                : renderOddEvenPlaceholder()
+          }
         </section>
         ${renderRankingPanel()}
       </main>
@@ -1843,6 +2068,40 @@ function getBetAmountFromInput(): number {
   return Math.floor(Number(raw));
 }
 
+function handleSecretCodeSubmit(form: HTMLFormElement) {
+  const code = String(new FormData(form).get("secretCode") ?? "").trim();
+  state.secretDraft.code = code;
+
+  if (code !== SECRET_ACCESS_CODE) {
+    showToast("번호가 올바르지 않습니다.", "error");
+    return;
+  }
+
+  state.secretFlow = "twofa";
+  render();
+  window.requestAnimationFrame(() => {
+    document.querySelector<HTMLInputElement>("#secret-twofa-input")?.focus();
+  });
+}
+
+async function handleSecretTwofaSubmit(form: HTMLFormElement) {
+  const code = String(new FormData(form).get("secretTwofa") ?? "").trim();
+  state.secretDraft.twofa = code;
+
+  if (code !== SECRET_2FA_CODE) {
+    showToast("2차 인증 번호가 올바르지 않습니다.", "error");
+    return;
+  }
+
+  await unlockSecretVault();
+}
+
+function getSlotBetAmountFromInput(): number {
+  const input = document.querySelector<HTMLInputElement>("#slot-bet-input");
+  const raw = input?.value ?? state.slotBetInput;
+  return Math.floor(Number(raw));
+}
+
 function bindGlobalEvents() {
   if (eventsBound) return;
   eventsBound = true;
@@ -1864,6 +2123,14 @@ function bindGlobalEvents() {
     }
     if (target.id === "password-change-form") {
       void handlePasswordChange(target);
+      return;
+    }
+    if (target.id === "secret-code-form") {
+      handleSecretCodeSubmit(target);
+      return;
+    }
+    if (target.id === "secret-twofa-form") {
+      void handleSecretTwofaSubmit(target);
     }
   });
 
@@ -1875,6 +2142,21 @@ function bindGlobalEvents() {
       state.betInput = target.value;
       saveBetInput(target.value);
       target.classList.remove("bet-input-error");
+      return;
+    }
+
+    if (target.id === "slot-bet-input") {
+      state.slotBetInput = target.value;
+      return;
+    }
+
+    if (target.name === "secretCode") {
+      state.secretDraft.code = target.value;
+      return;
+    }
+
+    if (target.name === "secretTwofa") {
+      state.secretDraft.twofa = target.value;
       return;
     }
 
@@ -1978,13 +2260,71 @@ function bindGlobalEvents() {
       case "logout":
         setToken(null);
         pauseBgm();
+        resetSecretFlow();
+        state.secretVaultUnlocked = false;
         state.user = null;
         state.activeSession = null;
         state.board = null;
         state.lastResult = null;
+        state.lastSlotSpin = null;
         state.activeModal = null;
+        state.activeGame = "updown";
         render();
         break;
+      case "secret-hit":
+        handleSecretHit();
+        break;
+      case "secret-confirm-yes":
+        state.secretFlow = "code";
+        render();
+        window.requestAnimationFrame(() => {
+          document.querySelector<HTMLInputElement>("#secret-code-input")?.focus();
+        });
+        break;
+      case "secret-confirm-no":
+        resetSecretFlow();
+        render();
+        break;
+      case "secret-code-submit": {
+        const form = document.querySelector<HTMLFormElement>("#secret-code-form");
+        if (form) handleSecretCodeSubmit(form);
+        break;
+      }
+      case "secret-twofa-submit": {
+        const form = document.querySelector<HTMLFormElement>("#secret-twofa-form");
+        if (form) void handleSecretTwofaSubmit(form);
+        break;
+      }
+      case "slot-exit":
+        state.activeGame = "updown";
+        render();
+        break;
+      case "slot-spin": {
+        if (!ensurePlayAllowed()) break;
+        const betAmount = getSlotBetAmountFromInput();
+        if (!Number.isFinite(betAmount) || betAmount < SLOT_MIN_BET) {
+          showToast(`최소 베팅은 ${formatPoints(SLOT_MIN_BET)} 입니다.`, "error");
+          break;
+        }
+        void withBusy(async () => api.vaultSpin(betAmount)).then((result) => {
+          if (!result) return;
+          if (result.accountDeleted) {
+            handleAccountDeleted("보유 포인트가 0P가 되어 계정이 삭제되었습니다.");
+            return;
+          }
+          if (result.user) state.user = result.user;
+          state.lastSlotSpin = {
+            reels: result.reels,
+            win: result.win,
+            payout: result.payout,
+            message: result.message,
+          };
+          showToast(result.message, result.win ? "info" : "error");
+          void refreshRankings();
+          render();
+        });
+        break;
+      }
       case "start-game": {
         if (!ensurePlayAllowed()) break;
         const betAmount = getBetAmountFromInput();

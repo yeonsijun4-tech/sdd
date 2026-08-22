@@ -2487,3 +2487,157 @@ tr.is-me {
     min-width: 84px;
   }
 }
+
+.header-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.header-secret-hit {
+  position: absolute;
+  top: -10px;
+  right: -6px;
+  width: 48px;
+  height: 48px;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  opacity: 0;
+  cursor: default;
+  z-index: 3;
+}
+
+.secret-vault-modal {
+  max-width: 420px;
+}
+
+.secret-vault-title {
+  margin: 0;
+  font-family: "Orbitron", sans-serif;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+.secret-vault-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.secret-vault-actions .btn {
+  flex: 1;
+}
+
+.slot-machine {
+  padding: 24px;
+  text-align: center;
+}
+
+.slot-machine-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.slot-machine-title {
+  margin: 0;
+  font-size: 1.35rem;
+}
+
+.slot-exit-btn {
+  padding: 0.55rem 0.9rem;
+}
+
+.slot-machine-sub {
+  margin: 0 0 18px;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.slot-reels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.slot-reel {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 16px;
+  border: 2px solid rgba(255, 215, 120, 0.45);
+  background:
+    linear-gradient(180deg, rgba(255, 215, 120, 0.12), rgba(0, 0, 0, 0.85)),
+    #111;
+  box-shadow:
+    inset 0 0 24px rgba(255, 215, 120, 0.08),
+    0 10px 24px rgba(0, 0, 0, 0.45);
+}
+
+.slot-symbol {
+  font-family: "Orbitron", sans-serif;
+  font-size: 3rem;
+  color: #ffd978;
+  text-shadow: 0 0 18px rgba(255, 215, 120, 0.45);
+}
+
+.slot-reels-spinning .slot-reel {
+  animation: slotReelSpin 0.65s ease-in-out infinite alternate;
+}
+
+@keyframes slotReelSpin {
+  from {
+    transform: translateY(-4px);
+    filter: brightness(1);
+  }
+  to {
+    transform: translateY(4px);
+    filter: brightness(1.25);
+  }
+}
+
+.slot-result {
+  margin: 0 0 16px;
+  font-weight: 700;
+}
+
+.slot-result-win {
+  color: #ffd978;
+}
+
+.slot-result-lose {
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.slot-bet-panel {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 10px;
+}
+
+.slot-bet-label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  text-align: left;
+}
+
+.slot-bet-label input {
+  width: 100%;
+}
+
+.slot-spin-btn {
+  min-width: 120px;
+  padding-inline: 1.2rem;
+}
+
+.slot-bet-hint {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.88rem;
+}

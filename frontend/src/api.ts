@@ -274,4 +274,27 @@ export const api = {
   presenceCount() {
     return request<{ count: number }>("/api/presence/count");
   },
+  vaultEligibility() {
+    return request<{
+      eligible: boolean;
+      minMaxSessionGain: number;
+      minBet: number;
+      maxSessionGain: number;
+    }>("/api/vault/eligibility");
+  },
+  vaultSpin(betAmount: number) {
+    return request<{
+      reels: number[];
+      win: boolean;
+      betAmount: number;
+      payout: number;
+      netDelta: number;
+      message: string;
+      accountDeleted?: boolean;
+      user: PublicUser | null;
+    }>("/api/vault/spin", {
+      method: "POST",
+      body: JSON.stringify({ betAmount }),
+    });
+  },
 };

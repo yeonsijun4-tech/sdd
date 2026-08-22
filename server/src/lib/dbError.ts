@@ -23,16 +23,10 @@ export function isDbConnectionError(error: unknown): boolean {
   );
 }
 
-export function mapApiError(error: unknown): { status: 503 | 500; message: string } {
-  if (isDbConnectionError(error)) {
-    return {
-      status: 503,
-      message: "서버가 준비 중입니다. 잠시 후 다시 시도해 주세요.",
-    };
-  }
-
+export function mapApiError(error: unknown): { status: 503; message: string } {
+  void error;
   return {
-    status: 500,
-    message: "요청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.",
+    status: 503,
+    message: "서버가 준비 중입니다. 같은 버튼을 다시 눌러 주세요.",
   };
 }

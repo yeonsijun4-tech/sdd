@@ -12,6 +12,7 @@ import {
   type RankingEntry,
 } from "./api";
 import { isBgmEnabled, pauseBgm, setBgmEnabled, syncBgmForLoggedInUser } from "./bgm";
+import { isBlockedErrorMessage, sanitizeUserMessage, shouldSilenceErrorToast } from "./userMessage";
 import "./styles.css";
 
 interface AppState {
@@ -668,21 +669,25 @@ function applyPokerCardValue(card: HTMLElement, value: number) {
 }
 
 function showToast(message: string, type: "info" | "error" = "info") {
+  const displayMessage = type === "error" ? sanitizeUserMessage(message) : message;
+  if (type === "error" && (!displayMessage || isBlockedErrorMessage(displayMessage))) {
+    return;
+  }
   const now = Date.now();
   if (
     type === "error" &&
-    message === state.lastErrorToastMessage &&
+    displayMessage === state.lastErrorToastMessage &&
     now - state.lastErrorToastAt < 3000
   ) {
     return;
   }
 
   if (type === "error") {
-    state.lastErrorToastMessage = message;
+    state.lastErrorToastMessage = displayMessage;
     state.lastErrorToastAt = now;
   }
 
-  state.toast = message;
+  state.toast = displayMessage;
   state.toastType = type;
   updateToast();
   window.setTimeout(() => {
@@ -777,7 +782,13 @@ async function withAuthBusy<T>(task: () => Promise<T>): Promise<T | null> {
       handleAccountDeleted(error.message);
       return null;
     }
-    showToast(formatActionError(error), "error");
+    if (shouldSilenceErrorToast(error)) {
+      return null;
+    }
+    const message = formatActionError(error);
+    if (message) {
+      showToast(message, "error");
+    }
     return null;
   } finally {
     setAuthSubmitting(false);
@@ -816,27 +827,48 @@ function playResultEffect(type: "WIN" | "LOSE") {
 }
 
 function formatActionError(error: unknown): string {
+  if (shouldSilenceErrorToast(error)) {
+    return "";
+  }
+
   if (error instanceof ApiError) {
-    if (error.status === 503 || error.status >= 500) {
-      return `${error.message} 게임과 포인트는 그대로입니다.`;
+    const message = sanitizeUserMessage(error.message, error.status);
+    if (!message || isBlockedErrorMessage(message)) {
+      return "";
     }
-    return error.message;
+    return message;
   }
 
   if (error instanceof Error) {
-    if (error.message.includes("연결") || error.message.includes("다시")) {
-      return `${error.message} 게임과 포인트는 그대로입니다.`;
+    const message = sanitizeUserMessage(error.message);
+    if (!message || isBlockedErrorMessage(message)) {
+      return "";
     }
-    return error.message;
+    return message;
   }
 
-  return "오류가 발생했습니다. 잠시 후 같은 버튼을 다시 눌러 주세요.";
+  return "";
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
 async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
   setBusy(true);
   try {
-    return await task();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      try {
+        return await task();
+      } catch (error) {
+        if (attempt < 2 && shouldSilenceErrorToast(error)) {
+          await sleep(700 * (attempt + 1));
+          continue;
+        }
+        throw error;
+      }
+    }
+    return null;
   } catch (error) {
     if (error instanceof ApiError && error.forceExit) {
       forceExitApp(error.message);
@@ -846,7 +878,10 @@ async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
       handleAccountDeleted(error.message);
       return null;
     }
-    showToast(formatActionError(error), "error");
+    const message = formatActionError(error);
+    if (message) {
+      showToast(message, "error");
+    }
     return null;
   } finally {
     setBusy(false);

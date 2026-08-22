@@ -42,6 +42,7 @@ interface AppState {
     accessCode: string;
     captchaAnswer: string;
   };
+  authSubmitting: boolean;
 }
 
 const state: AppState = {
@@ -68,6 +69,7 @@ const state: AppState = {
     accessCode: "",
     captchaAnswer: "",
   },
+  authSubmitting: false,
 };
 
 let rankingTimer: number | null = null;
@@ -365,11 +367,47 @@ function updateCaptchaHelp() {
 function setBusy(isBusy: boolean) {
   state.isBusy = isBusy;
   document.querySelectorAll<HTMLButtonElement>("button").forEach((button) => {
-    if (button.dataset.busyToggle === "true") {
-      button.disabled = isBusy;
-    }
+    if (button.dataset.busyToggle !== "true") return;
+    if (button.dataset.action === "auth-submit") return;
+    button.disabled = isBusy;
   });
   updateBusyOverlay(isBusy);
+}
+
+function getAuthSubmitLabel(mode: AppState["authMode"] = state.authMode): string {
+  return mode === "login" ? "로그인" : "가입하고 시작";
+}
+
+function setAuthSubmitting(isSubmitting: boolean) {
+  state.authSubmitting = isSubmitting;
+  const submitButton = document.querySelector<HTMLButtonElement>('[data-action="auth-submit"]');
+  if (!submitButton) return;
+  submitButton.disabled = isSubmitting;
+  submitButton.textContent = isSubmitting
+    ? state.authMode === "login"
+      ? "로그인 중..."
+      : "가입 처리 중..."
+    : getAuthSubmitLabel();
+}
+
+async function withAuthBusy<T>(task: () => Promise<T>): Promise<T | null> {
+  setAuthSubmitting(true);
+  try {
+    return await task();
+  } catch (error) {
+    if (error instanceof ApiError && error.forceExit) {
+      forceExitApp(error.message);
+      return null;
+    }
+    if (error instanceof ApiError && error.accountDeleted) {
+      handleAccountDeleted(error.message);
+      return null;
+    }
+    showToast(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
+    return null;
+  } finally {
+    setAuthSubmitting(false);
+  }
 }
 
 function updateBusyOverlay(isBusy: boolean) {
@@ -473,10 +511,7 @@ async function refreshRankings() {
 
 async function bootstrap() {
   bindGlobalEvents();
-
-  if (state.authMode === "register") {
-    await loadCaptcha();
-  }
+  void loadCaptcha({ silent: true });
 
   await refreshRankings();
   rankingTimer = window.setInterval(refreshRankings, 5000);
@@ -580,6 +615,7 @@ function renderAuthModal() {
           <p class="text-readable">가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
         </div>
         <form id="auth-form" class="auth-form" novalidate>
+          <input type="hidden" name="authMode" value="${state.authMode}" />
           <label>
             <span>닉네임</span>
             <input
@@ -587,7 +623,6 @@ function renderAuthModal() {
               maxlength="16"
               autocomplete="username"
               value="${state.authDraft.nickname}"
-              required
             />
           </label>
           <label>
@@ -599,7 +634,6 @@ function renderAuthModal() {
               maxlength="64"
               autocomplete="current-password"
               value="${state.authDraft.password}"
-              required
             />
           </label>
           <label>
@@ -611,7 +645,6 @@ function renderAuthModal() {
               maxlength="16"
               placeholder="로그인 코드 입력"
               value="${state.authDraft.accessCode}"
-              required
             />
           </label>
           ${captchaBlock}
@@ -623,9 +656,21 @@ function renderAuthModal() {
             />
             <span>로그인 유지</span>
           </label>
-          <button class="btn btn-primary holo-btn" type="submit" data-busy-toggle="true" ${state.isBusy ? "disabled" : ""}>
-            ${state.authMode === "login" ? "로그인" : "가입하고 시작"}
+          <button
+            class="btn btn-primary holo-btn"
+            type="button"
+            data-action="auth-submit"
+            ${state.authSubmitting ? "disabled" : ""}
+          >
+            ${state.authSubmitting ? (state.authMode === "login" ? "로그인 중..." : "가입 처리 중...") : getAuthSubmitLabel()}
           </button>
+          <p class="auth-mode-hint text-readable">
+            ${
+              state.authMode === "login"
+                ? "로그인 탭이 선택되어 있습니다. 기존 계정으로 들어갑니다."
+                : "회원가입 탭이 선택되어 있습니다. 보안코드까지 입력해야 가입됩니다."
+            }
+          </p>
         </form>
         <div class="auth-switch-row">
           <button class="link-btn holo-link ${state.authMode === "login" ? "active" : ""}" type="button" data-action="set-login">
@@ -1119,6 +1164,13 @@ function validateAuthForm(form: HTMLFormElement): boolean {
 }
 
 async function handleAuthSubmit(form: HTMLFormElement) {
+  if (state.authSubmitting) return;
+
+  const modeField = form.elements.namedItem("authMode");
+  if (modeField instanceof HTMLInputElement) {
+    state.authMode = modeField.value === "register" ? "register" : "login";
+  }
+
   if (!validateAuthForm(form)) return;
 
   const nickname = state.authDraft.nickname.trim();
@@ -1138,7 +1190,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     const captchaId = state.captcha?.captchaId ?? "";
     const captchaAnswer = state.authDraft.captchaAnswer.trim();
 
-    const result = await withBusy(async () =>
+    const result = await withAuthBusy(async () =>
       api.register(nickname, password, captchaId, captchaAnswer, accessCode)
     );
 
@@ -1162,7 +1214,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     return;
   }
 
-  const result = await withBusy(async () =>
+  const result = await withAuthBusy(async () =>
     api.login(nickname, password, rememberMe, accessCode)
   );
   if (!result) return;
@@ -1279,6 +1331,11 @@ function bindGlobalEvents() {
         state.activeModal = "patch";
         render();
         break;
+      case "auth-submit": {
+        const form = document.querySelector<HTMLFormElement>("#auth-form");
+        if (form) void handleAuthSubmit(form);
+        break;
+      }
       case "set-login":
         void switchAuthMode("login");
         break;

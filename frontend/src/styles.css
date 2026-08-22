@@ -1897,6 +1897,13 @@ tr.is-me {
   margin-top: 18px;
 }
 
+.auth-mode-hint {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--muted);
+  text-align: center;
+}
+
 .auth-divider {
   color: var(--muted);
 }

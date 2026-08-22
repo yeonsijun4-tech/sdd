@@ -150,23 +150,15 @@ function isWindowFullscreen(): boolean {
     return true;
   }
 
-  const tolerance = 64;
-  const availW = window.screen.availWidth;
-  const availH = window.screen.availHeight;
-  const outerOk =
-    window.outerWidth >= availW - tolerance && window.outerHeight >= availH - tolerance;
-  const innerOk =
-    window.innerWidth >= availW - tolerance && window.innerHeight >= availH - tolerance;
-  const viewport = window.visualViewport;
-  const visualOk = viewport
-    ? viewport.width >= availW - tolerance && viewport.height >= availH - tolerance
-    : false;
-  const chromeHidden =
-    window.outerHeight - window.innerHeight < 12 &&
-    window.outerWidth - window.innerWidth < 12 &&
-    window.innerHeight >= availH - tolerance;
+  // F11 hides browser chrome. Maximized window still keeps tabs/address bar.
+  const chromeHeight = window.outerHeight - window.innerHeight;
+  const chromeWidth = window.outerWidth - window.innerWidth;
+  const chromeHidden = chromeHeight <= 10 && chromeWidth <= 10;
+  const fillsViewport =
+    window.innerHeight >= window.screen.availHeight - 48 &&
+    window.innerWidth >= window.screen.availWidth - 48;
 
-  return outerOk || innerOk || visualOk || chromeHidden;
+  return chromeHidden && fillsViewport;
 }
 
 function isPlayBlocked(): boolean {

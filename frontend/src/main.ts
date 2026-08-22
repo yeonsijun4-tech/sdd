@@ -11,6 +11,7 @@ import {
   type PublicUser,
   type RankingEntry,
 } from "./api";
+import { isBgmEnabled, setBgmEnabled, setupBgmAutostart, tryPlayBgm } from "./bgm";
 import "./styles.css";
 
 interface AppState {
@@ -38,6 +39,7 @@ interface AppState {
   rememberLogin: boolean;
   sessionIp: string;
   onlineCount: number;
+  bgmEnabled: boolean;
   betInput: string;
   authDraft: {
     nickname: string;
@@ -91,6 +93,7 @@ const state: AppState = {
   rememberLogin: getRememberLogin(),
   sessionIp: "확인 중",
   onlineCount: 0,
+  bgmEnabled: isBgmEnabled(),
   betInput: loadSavedBetInput(),
   authDraft: {
     nickname: "",
@@ -882,6 +885,7 @@ async function refreshRankings() {
 
 async function bootstrap() {
   bindGlobalEvents();
+  setupBgmAutostart();
   void loadCaptcha({ silent: true });
   startPresenceTracking();
   startFullscreenWatch();
@@ -919,6 +923,16 @@ async function bootstrap() {
 function renderSiteFooter() {
   return `
     <footer class="site-footer">
+      <p class="ncs-credit">
+        BGM:
+        <a href="https://ncs.io/Phoenix" target="_blank" rel="noopener noreferrer">
+          Netrum &amp; Halvorsen - Phoenix [NCS Release]
+        </a>
+        · Music provided by
+        <a href="https://www.youtube.com/c/NoCopyrightSounds" target="_blank" rel="noopener noreferrer">
+          NoCopyrightSounds
+        </a>
+      </p>
       <a
         class="creator-card"
         href="https://instagram.com/xvzeon_"
@@ -1128,6 +1142,7 @@ function renderMainMenuPanel() {
         </div>
       </div>
       <div class="menu-link-row">
+        <button type="button" data-action="toggle-bgm">${state.bgmEnabled ? "BGM 끄기" : "BGM 켜기"}</button>
         <button type="button" data-action="open-profile">회원정보</button>
         <button type="button" data-action="open-notice">공지사항</button>
         <button type="button" data-action="open-patch">패치노트</button>
@@ -1513,9 +1528,14 @@ function renderApp() {
             </div>
             <span class="brand-sub">Virtual Point Game</span>
           </div>
-          <div class="online-count-badge">
-            <span>접속자</span>
-            <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
+          <div class="topbar-actions">
+            <div class="online-count-badge">
+              <span>접속자</span>
+              <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
+            </div>
+            <button class="btn btn-ghost bgm-toggle-btn" type="button" data-action="toggle-bgm">
+              ${state.bgmEnabled ? "BGM 끄기" : "BGM 켜기"}
+            </button>
           </div>
         </header>
         ${renderUpdateBanner()}
@@ -1864,6 +1884,11 @@ function bindGlobalEvents() {
         break;
       case "open-patch":
         state.activeModal = "patch";
+        render();
+        break;
+      case "toggle-bgm":
+        state.bgmEnabled = !state.bgmEnabled;
+        setBgmEnabled(state.bgmEnabled);
         render();
         break;
       case "enter-fullscreen":

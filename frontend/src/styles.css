@@ -287,6 +287,18 @@ body.desktop-fullscreen-required #app {
   margin-bottom: 20px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bgm-toggle-btn {
+  white-space: nowrap;
+  font-size: 0.82rem;
+  padding: 8px 12px;
+}
+
 .online-count-badge {
   display: flex;
   flex-direction: column;
@@ -1889,7 +1901,27 @@ tr.is-me {
   margin-top: auto;
   padding: 28px 12px 12px;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.ncs-credit {
+  width: 100%;
+  margin: 0;
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.48);
+  line-height: 1.5;
+}
+
+.ncs-credit a {
+  color: rgba(170, 220, 255, 0.82);
+  text-decoration: none;
+}
+
+.ncs-credit a:hover {
+  text-decoration: underline;
 }
 
 .creator-card {

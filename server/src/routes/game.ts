@@ -10,6 +10,7 @@ import {
 } from "../game/logic.js";
 import {
   createGameSession,
+  deleteUserIfZeroBalance,
   findUserById,
   getActiveGameSession,
   getUserRank,
@@ -55,12 +56,15 @@ game.post("/start", async (c) => {
   }
 
   if (dbUser.points <= 0) {
+    const accountDeleted = await deleteUserIfZeroBalance(userId);
     return c.json(
       {
-        error: "보유 포인트가 없습니다. 무료 보너스를 받은 뒤 사용할 포인트를 입력해 주세요.",
-        needsBonus: dbUser.bonus_claimed === 0,
+        error: accountDeleted
+          ? "보유 포인트가 0P가 되어 계정이 삭제되었습니다."
+          : "보유 포인트가 없습니다.",
+        accountDeleted,
       },
-      400
+      accountDeleted ? 410 : 400
     );
   }
 
@@ -158,7 +162,8 @@ game.post("/guess", async (c) => {
   });
 
   const dbUser = await findUserById(userId);
-  const rank = await getUserRank(userId);
+  const accountDeleted = await deleteUserIfZeroBalance(userId);
+  const rank = accountDeleted ? null : dbUser ? await getUserRank(userId) : null;
 
   return c.json({
     result: "LOSE",
@@ -166,9 +171,12 @@ game.post("/guess", async (c) => {
     nextNumber,
     choice,
     lostPoints,
-    message: "예측에 실패했습니다. 이번 게임의 미확정 포인트가 초기화됩니다.",
+    message: accountDeleted
+      ? "예측에 실패했습니다. 보유 포인트가 0P가 되어 계정이 삭제되었습니다."
+      : "예측에 실패했습니다. 이번 게임의 미확정 포인트가 초기화됩니다.",
     activeSession: null,
-    user: dbUser ? publicUser(dbUser, rank) : null,
+    accountDeleted,
+    user: dbUser && !accountDeleted ? publicUser(dbUser, rank) : null,
   });
 });
 

@@ -194,29 +194,15 @@ input {
 }
 
 .page-shell.game-page .game-board {
-  padding-bottom: 88px;
+  padding-bottom: 24px;
 }
 
 .page-shell.game-page.is-playing .game-board {
-  padding-bottom: 128px;
+  padding-bottom: 24px;
 }
 
 .page-shell.game-page.is-playing .ranking-panel {
-  display: none;
-}
-
-@media (min-width: 1100px) {
-  .page-shell.game-page.is-playing .ranking-panel {
-    display: flex;
-  }
-
-  .page-shell.game-page.is-playing .choice-dock {
-    position: sticky;
-    bottom: 8px;
-    left: auto;
-    transform: none;
-    width: 100%;
-  }
+  display: flex;
 }
 
 .page-shell > .layout,
@@ -699,8 +685,16 @@ input {
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.04);
   color: rgba(255, 255, 255, 0.88);
-  font-size: 0.82rem;
+  font-size: 0.78rem;
   cursor: pointer;
+  white-space: nowrap;
+}
+
+.bet-zero-notice {
+  margin: 12px 0 0;
+  color: rgba(255, 160, 160, 0.92);
+  font-size: 0.84rem;
+  text-align: center;
 }
 
 .bet-preset-btn:hover {
@@ -770,14 +764,14 @@ input {
 }
 
 .choice-dock {
-  position: fixed;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 108px;
-  width: min(calc(100% - 20px), 760px);
-  z-index: 30;
-  margin-top: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  position: static;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: 100%;
+  z-index: 1;
+  margin-top: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .game-board--playing .card-table {
@@ -1174,6 +1168,29 @@ input {
   display: grid;
   grid-template-columns: 1.4fr 0.9fr;
   gap: 20px;
+}
+
+.game-layout {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 760px) minmax(280px, 360px);
+  align-items: start;
+}
+
+.layout-spacer {
+  min-width: 0;
+}
+
+.game-center-column {
+  grid-column: 2;
+  width: 100%;
+  max-width: 760px;
+  justify-self: center;
+}
+
+.game-layout .ranking-panel {
+  grid-column: 3;
+  position: sticky;
+  top: 8px;
+  max-height: calc(100dvh - 220px);
 }
 
 .main-column {
@@ -1930,9 +1947,25 @@ tr.is-me {
 }
 
 @media (max-width: 960px) {
-  .layout {
+  .layout,
+  .game-layout {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(0, 1fr) auto;
+  }
+
+  .layout-spacer {
+    display: none;
+  }
+
+  .game-center-column {
+    grid-column: 1;
+    max-width: none;
+  }
+
+  .game-layout .ranking-panel {
+    grid-column: 1;
+    position: static;
+    max-height: min(28vh, 220px);
   }
 
   .page-shell.game-page .main-column {
@@ -2013,11 +2046,6 @@ tr.is-me {
   .page-shell.game-page .site-footer {
     right: 8px;
     bottom: 8px;
-  }
-
-  .choice-dock {
-    bottom: 98px;
-    width: calc(100% - 16px);
   }
 
   .page-shell.game-page .game-board {

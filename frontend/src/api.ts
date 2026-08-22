@@ -57,10 +57,12 @@ const REMEMBER_KEY = "1zuxm_remember";
 
 export class ApiError extends Error {
   status: number;
+  accountDeleted: boolean;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, accountDeleted = false) {
     super(message);
     this.status = status;
+    this.accountDeleted = accountDeleted;
   }
 }
 
@@ -95,7 +97,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const text = await response.text();
-  let data: { error?: string } = {};
+  let data: { error?: string; accountDeleted?: boolean } = {};
 
   if (text) {
     try {
@@ -112,7 +114,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (!response.ok) {
     throw new ApiError(
       data.error ?? "요청 처리 중 오류가 발생했습니다.",
-      response.status
+      response.status,
+      data.accountDeleted === true
     );
   }
 
@@ -164,7 +167,8 @@ export const api = {
       activeSession: ActiveSession | null;
       board: BoardState;
       message?: string;
-      user?: PublicUser;
+      user?: PublicUser | null;
+      accountDeleted?: boolean;
     }>("/api/game/start", {
       method: "POST",
       body: JSON.stringify({ betAmount }),
@@ -181,7 +185,8 @@ export const api = {
       message?: string;
       activeSession: ActiveSession | null;
       board?: BoardState;
-      user?: PublicUser;
+      user?: PublicUser | null;
+      accountDeleted?: boolean;
     }>("/api/game/guess", {
       method: "POST",
       body: JSON.stringify({ choice }),

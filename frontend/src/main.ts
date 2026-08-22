@@ -116,7 +116,20 @@ async function loadSessionInfo() {
   }
 }
 
+const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
 const GAME_ICON = "/assets/1zuxm-icon.png";
+
+function handleAccountDeleted(message?: string) {
+  setToken(null);
+  state.user = null;
+  state.activeSession = null;
+  state.board = null;
+  state.lastResult = null;
+  state.betInput = "";
+  state.activeModal = null;
+  showToast(message ?? "보유 포인트가 0P가 되어 계정이 삭제되었습니다.", "error");
+  render();
+}
 
 function formatPoints(value: number): string {
   return `${value.toLocaleString("ko-KR")}P`;
@@ -373,6 +386,10 @@ async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
   try {
     return await task();
   } catch (error) {
+    if (error instanceof ApiError && error.accountDeleted) {
+      handleAccountDeleted(error.message);
+      return null;
+    }
     showToast(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
     return null;
   } finally {
@@ -450,7 +467,9 @@ async function bootstrap() {
       void loadSessionInfo();
       startSessionClock();
     } catch (error) {
-      if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
+      if (error instanceof ApiError && error.accountDeleted) {
+        handleAccountDeleted(error.message);
+      } else if (error instanceof ApiError && (error.status === 401 || error.status === 403)) {
         setToken(null);
       }
     }
@@ -643,6 +662,7 @@ function renderInfoModal() {
         <li>1zuxm은 가상 포인트만 사용하는 예측 게임입니다.</li>
         <li>실제 환전, 출금 기능은 없습니다.</li>
         <li>게임 중 그만하기를 눌러야 미확정 포인트가 보유 포인트에 반영됩니다.</li>
+        <li>보유 포인트가 0P가 되면 계정이 자동 삭제됩니다.</li>
       </ul>
     `,
     patch: `
@@ -751,7 +771,7 @@ function renderGameBoard() {
   const winMultiplier = 2;
   const nextPreview = canPlay ? "?" : "--";
   const balance = state.user?.points ?? 0;
-  const presetAmounts = [1000, 5000, 10000].filter((amount) => amount <= balance);
+  const presetAmounts = BET_PRESETS.filter((amount) => amount <= balance);
   const canStart = balance > 0;
 
   return `
@@ -874,8 +894,8 @@ function renderGameBoard() {
             포인트 사용하고 게임 시작
           </button>
           ${
-            state.user && state.user.points === 0 && !state.user.bonusClaimed
-              ? `<button class="btn btn-secondary bonus-btn" data-action="claim-bonus" data-busy-toggle="true">무료 10,000P 받기</button>`
+            balance === 0 && !canPlay
+              ? `<p class="bet-zero-notice">보유 포인트가 0P가 되면 계정이 삭제됩니다.</p>`
               : ""
           }
         `
@@ -937,8 +957,9 @@ function renderApp() {
 
       ${renderMainNav()}
 
-      <main class="layout">
-        <section class="main-column">
+      <main class="layout game-layout">
+        <div class="layout-spacer" aria-hidden="true"></div>
+        <section class="main-column game-center-column">
           ${state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()}
         </section>
         ${renderRankingPanel()}
@@ -1152,14 +1173,6 @@ function bindGlobalEvents() {
         document.querySelector<HTMLInputElement>("#bet-amount-input")?.focus();
         break;
       }
-      case "claim-bonus":
-        void withBusy(async () => api.claimBonus()).then((result) => {
-          if (!result) return;
-          state.user = result.user;
-          showToast(result.message);
-          render();
-        });
-        break;
       case "guess-up":
         void handleGuess("UP");
         break;
@@ -1203,6 +1216,12 @@ async function handleGuess(choice: "UP" | "DOWN") {
   } else {
     state.activeSession = null;
     state.board = null;
+    if (result.accountDeleted) {
+      handleAccountDeleted(result.message);
+      playResultEffect(result.result);
+      animateNumberChange(result.previousNumber, result.nextNumber);
+      return;
+    }
     if (result.user) state.user = result.user;
     showToast(result.message ?? "게임이 종료되었습니다.");
     await refreshRankings();

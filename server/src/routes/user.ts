@@ -1,13 +1,13 @@
 import { Hono } from "hono";
 import {
+  deleteUserIfZeroBalance,
   findUserById,
   getActiveGameSession,
   getUserRank,
-  incrementUserStats,
   publicUser,
   serializeActiveSession,
 } from "../db/queries.js";
-import { BONUS_POINTS, type AppVariables } from "../types.js";
+import type { AppVariables } from "../types.js";
 
 const user = new Hono<{ Variables: AppVariables }>();
 
@@ -16,39 +16,23 @@ user.get("/me", async (c) => {
   const dbUser = await findUserById(userId);
   if (!dbUser) return c.json({ error: "사용자를 찾을 수 없습니다." }, 404);
 
+  const accountDeleted = await deleteUserIfZeroBalance(userId);
+  if (accountDeleted) {
+    return c.json(
+      {
+        error: "보유 포인트가 0P가 되어 계정이 삭제되었습니다.",
+        accountDeleted: true,
+      },
+      410
+    );
+  }
+
   const rank = await getUserRank(userId);
   const activeSession = await getActiveGameSession(userId);
 
   return c.json({
     user: publicUser(dbUser, rank),
     activeSession: serializeActiveSession(activeSession),
-  });
-});
-
-user.post("/bonus", async (c) => {
-  const userId = c.get("userId");
-  const dbUser = await findUserById(userId);
-  if (!dbUser) return c.json({ error: "사용자를 찾을 수 없습니다." }, 404);
-
-  if (dbUser.points > 0) {
-    return c.json({ error: "보유 포인트가 0P일 때만 보너스를 받을 수 있습니다." }, 400);
-  }
-
-  if (dbUser.bonus_claimed === 1) {
-    return c.json({ error: "무료 보너스는 1회만 제공됩니다." }, 400);
-  }
-
-  await incrementUserStats(userId, {
-    pointsDelta: BONUS_POINTS,
-    bonusClaimed: 1,
-  });
-
-  const updated = await findUserById(userId);
-  const rank = await getUserRank(userId);
-
-  return c.json({
-    message: `무료 보너스 ${BONUS_POINTS.toLocaleString("ko-KR")}P가 지급되었습니다.`,
-    user: updated ? publicUser(updated, rank) : null,
   });
 });
 

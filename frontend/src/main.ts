@@ -209,6 +209,40 @@ function startPresenceTracking() {
 
 const MIN_CASHOUT_TURNS = 2;
 const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
+
+const PATCH_NOTES_V10_HTML = `
+  <div class="patch-version-block patch-version-latest">
+    <h3 class="holo-text">v10.0 · 오픈 베타</h3>
+    <p class="patch-version-summary">v1.5 이후 추가·수정된 내용을 모두 반영했습니다. 친구들과 함께 플레이해 보세요!</p>
+    <ul class="info-list">
+      <li><strong>v1.5</strong> 원(돈) 표기 → 포인트(P)로 변경</li>
+      <li>PostgreSQL 도입으로 계정·랭킹 데이터 영구 저장</li>
+      <li>동일 숫자(타이) 결과 제거</li>
+      <li>보유 포인트 0P 시 계정 자동 삭제</li>
+      <li>게임판 중앙 배치, 실시간 랭킹 우측 고정</li>
+      <li>배팅 프리셋 확대 및 프리셋 클릭 시 금액 누적</li>
+      <li>배팅 금액 저장 (새로고침 후에도 유지)</li>
+      <li>배팅 상한 제거 (보유 포인트 범위 내 자유 배팅)</li>
+      <li>랭킹 대액 포인트 표시 개선</li>
+      <li>랭킹 갱신 시 로그인·입력 폼 초기화 버그 수정</li>
+      <li>로그인 코드(0828) 별도 입장 화면</li>
+      <li>로그인·회원가입 처리 안정화</li>
+      <li>실시간 접속자 수 표시</li>
+      <li>그만하기는 2턴 이상 성공 후 가능</li>
+      <li>개발자(DEV) 배지 표시</li>
+    </ul>
+  </div>
+  <div class="patch-version-block">
+    <h3>v1.4 이전</h3>
+    <ul class="info-list">
+      <li><strong>v1.4</strong> 확률 공개 제거, 사용 포인트 직접 입력</li>
+      <li><strong>v1.3</strong> 포인트 → 원(돈) 표기 (v1.5에서 되돌림)</li>
+      <li><strong>v1.2</strong> 카드형 UI, 상단 메뉴, 로그인 유지 추가</li>
+      <li><strong>v1.1</strong> 보안코드, 홀로그램 UI, Render 배포</li>
+      <li><strong>v1.0</strong> UP/DOWN 숫자 예측 게임 오픈</li>
+    </ul>
+  </div>
+`;
 const GAME_ICON = "/assets/1zuxm-icon.png";
 const LOGIN_ACCESS_CODE = "0828";
 const DEV_NICKNAME = "ysjyoun";
@@ -876,8 +910,26 @@ function renderMainMenuPanel() {
   `;
 }
 
+function renderUpdateBanner() {
+  return `
+    <section class="v10-update-banner holo-border" aria-label="V10 업데이트">
+      <div class="v10-update-copy">
+        <span class="v10-update-badge">NEW</span>
+        <div class="v10-update-headline">
+          <strong class="holo-text">V10 업데이트</strong>
+          <span>오픈 베타 · 새 기능과 버그 수정을 확인하세요</span>
+        </div>
+      </div>
+      <button class="btn btn-primary holo-btn v10-update-view-btn" type="button" data-action="open-patch">
+        보기
+      </button>
+    </section>
+  `;
+}
+
 function renderInfoModal() {
-  if (!state.activeModal || !state.user) return "";
+  if (!state.activeModal) return "";
+  if (state.activeModal !== "patch" && !state.user) return "";
 
   const titles = {
     profile: "회원정보",
@@ -900,25 +952,16 @@ function renderInfoModal() {
       <ul class="info-list">
         <li>1zuxm은 가상 포인트만 사용하는 예측 게임입니다.</li>
         <li>실제 환전, 출금 기능은 없습니다.</li>
-        <li>게임 중 그만하기를 눌러야 미확정 포인트가 보유 포인트에 반영됩니다.</li>
+        <li>게임 중 2턴 이상 성공 후 그만하기를 눌러야 미확정 포인트가 보유 포인트에 반영됩니다.</li>
         <li>보유 포인트가 0P가 되면 계정이 자동 삭제됩니다.</li>
       </ul>
     `,
-    patch: `
-      <ul class="info-list">
-        <li><strong>v1.5</strong> 원(돈) 표기 → 포인트(P)로 변경</li>
-        <li><strong>v1.4</strong> 확률 공개 제거, 사용 포인트 직접 입력</li>
-        <li><strong>v1.3</strong> 포인트 → 원(돈) 표기 (v1.5에서 되돌림)</li>
-        <li><strong>v1.2</strong> 카드형 UI, 상단 메뉴, 로그인 유지 추가</li>
-        <li><strong>v1.1</strong> 보안코드, 홀로그램 UI, Render 배포</li>
-        <li><strong>v1.0</strong> UP/DOWN 숫자 예측 게임 오픈</li>
-      </ul>
-    `,
+    patch: PATCH_NOTES_V10_HTML,
   } as const;
 
   return `
     <div class="modal-backdrop" data-action="close-modal">
-      <div class="modal card-surface holo-border info-modal" role="dialog" aria-modal="true">
+      <div class="modal card-surface holo-border info-modal info-modal-patch" role="dialog" aria-modal="true">
         <div class="modal-header info-modal-header">
           <h2 class="holo-text">${titles[state.activeModal]}</h2>
           <button class="modal-close" type="button" data-action="close-modal" aria-label="닫기">×</button>
@@ -957,9 +1000,9 @@ function renderRankingTableBody(): string {
                 <tr class="${state.user?.nickname.toLowerCase() === row.nickname.toLowerCase() ? "is-me" : ""}">
                   <td class="holo-text">#${row.rank}</td>
                   <td>${renderNicknameWithDevBadge(row.nickname)}</td>
-                  <td>${formatPoints(row.points)}</td>
+                  <td class="ranking-points">${formatPoints(row.points)}</td>
                   <td>${row.maxStreak}</td>
-                  <td>${formatPoints(row.maxSessionGain)}</td>
+                  <td class="ranking-points">${formatPoints(row.maxSessionGain)}</td>
                 </tr>
               `
     )
@@ -991,6 +1034,7 @@ function updateRankingPanelDom() {
   }
   if (strongs[1]) {
     strongs[1].textContent = formatPoints(state.user?.points ?? 0);
+    strongs[1].classList.add("ranking-points");
   }
 }
 
@@ -1007,10 +1051,10 @@ function renderRankingPanel() {
         <span>내 순위</span>
         <strong class="holo-text">${myRankText}</strong>
         <span>${state.user ? renderNicknameWithDevBadge(state.user.nickname) : "게스트"}</span>
-        <strong class="holo-text">${formatPoints(state.user?.points ?? 0)}</strong>
+        <strong class="holo-text ranking-points">${formatPoints(state.user?.points ?? 0)}</strong>
       </div>
       <div class="ranking-table-wrap">
-        <table>
+        <table class="ranking-table">
           <thead>
             <tr>
               <th>순위</th>
@@ -1043,7 +1087,7 @@ function renderGameBoard() {
   const winMultiplier = 2;
   const nextPreview = canPlay ? "?" : "--";
   const balance = state.user?.points ?? 0;
-  const presetAmounts = BET_PRESETS.filter((amount) => amount <= balance);
+  const presetAmounts = BET_PRESETS;
   const canStart = balance > 0;
 
   return `
@@ -1135,14 +1179,13 @@ function renderGameBoard() {
               type="number"
               inputmode="numeric"
               min="1"
-              max="${balance}"
               placeholder="예: 1000"
               value="${state.betInput}"
               ${canStart ? "" : "disabled"}
             />
             <span class="bet-input-unit">P</span>
           </div>
-          <p class="bet-input-hint">현재 보유 ${formatPoints(balance)} · 1P 이상, 보유 포인트 이하만 가능</p>
+          <p class="bet-input-hint">현재 보유 ${formatPoints(balance)} · 1P 이상, 보유 포인트 이하 입력 가능</p>
           ${
             presetAmounts.length > 0
               ? `
@@ -1210,7 +1253,9 @@ function renderApp() {
             <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
           </div>
         </header>
+        ${renderUpdateBanner()}
         ${state.pendingAuth ? renderAccessCodeModal() : renderAuthModal()}
+        ${renderInfoModal()}
         ${renderSiteFooter()}
       </div>
     `;
@@ -1230,6 +1275,8 @@ function renderApp() {
         </div>
         <button class="btn btn-ghost header-logout" data-action="logout" type="button">로그아웃</button>
       </header>
+
+      ${renderUpdateBanner()}
 
       ${renderMainNav()}
 

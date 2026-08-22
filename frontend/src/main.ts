@@ -35,6 +35,7 @@ interface AppState {
   activeGame: "updown" | "oddeven";
   rememberLogin: boolean;
   sessionIp: string;
+  onlineCount: number;
   betInput: string;
   authDraft: {
     nickname: string;
@@ -48,6 +49,24 @@ interface AppState {
     rememberMe: boolean;
     nickname: string;
   } | null;
+}
+
+const BET_INPUT_KEY = "1zuxm_bet_input";
+
+function loadSavedBetInput(): string {
+  const raw = localStorage.getItem(BET_INPUT_KEY);
+  if (!raw) return "";
+  const parsed = Math.floor(Number(raw));
+  return Number.isFinite(parsed) && parsed > 0 ? String(parsed) : "";
+}
+
+function saveBetInput(value: string) {
+  const parsed = Math.floor(Number(value));
+  if (Number.isFinite(parsed) && parsed > 0) {
+    localStorage.setItem(BET_INPUT_KEY, String(parsed));
+    return;
+  }
+  localStorage.removeItem(BET_INPUT_KEY);
 }
 
 const state: AppState = {
@@ -67,7 +86,8 @@ const state: AppState = {
   activeGame: "updown",
   rememberLogin: getRememberLogin(),
   sessionIp: "확인 중",
-  betInput: "",
+  onlineCount: 50,
+  betInput: loadSavedBetInput(),
   authDraft: {
     nickname: "",
     password: "",
@@ -79,6 +99,7 @@ const state: AppState = {
 };
 
 let rankingTimer: number | null = null;
+let presenceTimer: number | null = null;
 let sessionClockTimer: number | null = null;
 let eventsBound = false;
 
@@ -136,9 +157,80 @@ async function loadSessionInfo() {
   }
 }
 
+const PRESENCE_CLIENT_KEY = "1zuxm_presence_client";
+
+function getPresenceClientId(): string {
+  let clientId = sessionStorage.getItem(PRESENCE_CLIENT_KEY);
+  if (!clientId) {
+    clientId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `c-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    sessionStorage.setItem(PRESENCE_CLIENT_KEY, clientId);
+  }
+  return clientId;
+}
+
+function formatOnlineCount(count: number): string {
+  return `${count.toLocaleString("ko-KR")}명`;
+}
+
+function updateOnlineCountDom() {
+  const element = document.querySelector<HTMLElement>("#online-count");
+  if (element) element.textContent = formatOnlineCount(state.onlineCount);
+}
+
+async function sendPresenceHeartbeat() {
+  try {
+    const result = await api.presenceHeartbeat(getPresenceClientId());
+    state.onlineCount = result.count;
+    updateOnlineCountDom();
+  } catch {
+    // presence failures should not block auth or gameplay
+  }
+}
+
+function startPresenceTracking() {
+  void sendPresenceHeartbeat();
+  if (presenceTimer) return;
+  presenceTimer = window.setInterval(() => {
+    void sendPresenceHeartbeat();
+  }, 30000);
+
+  window.addEventListener("beforeunload", () => {
+    const clientId = getPresenceClientId();
+    if (!navigator.sendBeacon) return;
+    navigator.sendBeacon(
+      "/api/presence/leave",
+      new Blob([JSON.stringify({ clientId })], { type: "application/json" })
+    );
+  });
+}
+
 const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
 const GAME_ICON = "/assets/1zuxm-icon.png";
 const LOGIN_ACCESS_CODE = "0828";
+
+function getCurrentBetInputAmount(): number {
+  const raw = document.querySelector<HTMLInputElement>("#bet-amount-input")?.value ?? state.betInput;
+  const parsed = Math.floor(Number(raw));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function setBetInputAmount(amount: number) {
+  const normalized = Math.max(0, Math.floor(amount));
+  state.betInput = normalized > 0 ? String(normalized) : "";
+  saveBetInput(state.betInput);
+}
+
+function syncBetInputWithBalance() {
+  const balance = state.user?.points ?? 0;
+  const current = getCurrentBetInputAmount();
+  if (current <= 0) return;
+  if (current > balance) {
+    setBetInputAmount(balance);
+  }
+}
 
 function forceExitApp(message?: string) {
   setToken(null);
@@ -156,6 +248,7 @@ function handleAccountDeleted(message?: string) {
   state.board = null;
   state.lastResult = null;
   state.betInput = "";
+  saveBetInput("");
   state.activeModal = null;
   showToast(message ?? "보유 포인트가 0P가 되어 계정이 삭제되었습니다.", "error");
   render();
@@ -518,6 +611,7 @@ async function refreshRankings() {
 async function bootstrap() {
   bindGlobalEvents();
   void loadCaptcha({ silent: true });
+  startPresenceTracking();
 
   await refreshRankings();
   rankingTimer = window.setInterval(refreshRankings, 5000);
@@ -535,6 +629,7 @@ async function bootstrap() {
 
       void loadSessionInfo();
       startSessionClock();
+      syncBetInputWithBalance();
     } catch (error) {
       if (error instanceof ApiError && error.accountDeleted) {
         handleAccountDeleted(error.message);
@@ -752,6 +847,10 @@ function renderMainMenuPanel() {
         <div class="menu-info-card">
           <span>접속 기기</span>
           <strong id="session-device">${detectDeviceLabel()}</strong>
+        </div>
+        <div class="menu-info-card">
+          <span>접속자</span>
+          <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
         </div>
       </div>
       <div class="menu-link-row">
@@ -1039,7 +1138,7 @@ function renderGameBoard() {
                 .join("")}
               ${
                 balance > 0
-                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${balance}">전액</button>`
+                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-bet-mode="set" data-amount="${balance}">전액</button>`
                   : ""
               }
             </div>
@@ -1088,6 +1187,10 @@ function renderApp() {
               <span class="brand-mark holo-text">1ZUXM</span>
             </div>
             <span class="brand-sub">Virtual Point Game</span>
+          </div>
+          <div class="online-count-badge">
+            <span>접속자</span>
+            <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
           </div>
         </header>
         ${state.pendingAuth ? renderAccessCodeModal() : renderAuthModal()}
@@ -1327,6 +1430,7 @@ function bindGlobalEvents() {
 
     if (target.id === "bet-amount-input") {
       state.betInput = target.value;
+      saveBetInput(target.value);
       target.classList.remove("bet-input-error");
       return;
     }
@@ -1438,8 +1542,8 @@ function bindGlobalEvents() {
           state.activeSession = result.activeSession;
           state.board = result.board;
           state.lastResult = null;
-          state.betInput = "";
           if (result.user) state.user = result.user;
+          syncBetInputWithBalance();
           if (result.message) showToast(result.message);
           else showToast(`${formatPoints(betAmount)} 포인트로 게임을 시작했습니다.`);
           render();
@@ -1449,7 +1553,11 @@ function bindGlobalEvents() {
       case "set-bet": {
         const amount = Math.floor(Number(button.dataset.amount));
         if (!Number.isFinite(amount) || amount <= 0) break;
-        state.betInput = String(amount);
+        const balance = state.user?.points ?? 0;
+        const mode = button.dataset.betMode ?? "add";
+        const nextAmount =
+          mode === "set" ? Math.min(amount, balance) : Math.min(getCurrentBetInputAmount() + amount, balance);
+        setBetInputAmount(nextAmount);
         render();
         document.querySelector<HTMLInputElement>("#bet-amount-input")?.focus();
         break;
@@ -1467,6 +1575,7 @@ function bindGlobalEvents() {
           state.activeSession = null;
           state.board = null;
           state.lastResult = null;
+          syncBetInputWithBalance();
           animatePointsGain(result.earned);
           showToast(result.message);
           await refreshRankings();
@@ -1504,6 +1613,7 @@ async function handleGuess(choice: "UP" | "DOWN") {
       return;
     }
     if (result.user) state.user = result.user;
+    syncBetInputWithBalance();
     showToast(result.message ?? "게임이 종료되었습니다.");
     await refreshRankings();
   }

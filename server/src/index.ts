@@ -3,6 +3,8 @@ import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
 import { getJwtSecret, initDb } from "./db/client.js";
 import { resolvePublicDir } from "./lib/paths.js";
+import { readJsonBody } from "./lib/http.js";
+import { getOnlineCount, removeConnection, touchConnection } from "./lib/presence.js";
 import { optionalAuth, requireAuth } from "./middleware/auth.js";
 import authRoutes from "./routes/auth.js";
 import gameRoutes from "./routes/game.js";
@@ -52,13 +54,30 @@ app.get("/api/session/info", (c) => {
   });
 });
 
+app.get("/api/presence/count", (c) => {
+  return c.json({ count: getOnlineCount() });
+});
+
+app.post("/api/presence/heartbeat", async (c) => {
+  const body = await readJsonBody<{ clientId?: string }>(c);
+  const clientId = String(body?.clientId ?? "").trim();
+  const count = clientId ? touchConnection(clientId) : getOnlineCount();
+  return c.json({ count });
+});
+
+app.post("/api/presence/leave", async (c) => {
+  const body = await readJsonBody<{ clientId?: string }>(c);
+  const clientId = String(body?.clientId ?? "").trim();
+  const count = clientId ? removeConnection(clientId) : getOnlineCount();
+  return c.json({ count });
+});
+
 app.route("/api/auth", authRoutes);
 app.use("/api/user/*", requireAuth);
 app.route("/api/user", userRoutes);
 app.use("/api/game/*", requireAuth);
 app.route("/api/game", gameRoutes);
 app.use("/api/ranking/*", optionalAuth);
-app.use("/api/ranking", optionalAuth);
 app.route("/api/ranking", rankingRoutes);
 
 app.use("/assets/*", serveStatic({ root: publicDir }));

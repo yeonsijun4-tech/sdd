@@ -216,4 +216,13 @@ export const api = {
   sessionInfo() {
     return request<{ ip: string; time: string }>("/api/session/info");
   },
+  presenceHeartbeat(clientId: string) {
+    return request<{ count: number }>("/api/presence/heartbeat", {
+      method: "POST",
+      body: JSON.stringify({ clientId }),
+    });
+  },
+  presenceCount() {
+    return request<{ count: number }>("/api/presence/count");
+  },
 };

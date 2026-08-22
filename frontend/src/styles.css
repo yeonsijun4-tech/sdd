@@ -224,6 +224,29 @@ input {
   margin-bottom: 20px;
 }
 
+.online-count-badge {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: #000000;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.online-count-badge span {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.78rem;
+}
+
+.online-count-badge strong {
+  color: #ffffff;
+  font-size: 0.96rem;
+  font-weight: 700;
+}
+
 .site-header {
   display: flex;
   align-items: center;
@@ -285,7 +308,7 @@ input {
 
 .menu-info-row {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-bottom: 12px;
 }
@@ -2013,7 +2036,7 @@ tr.is-me {
 
   .page-shell.game-page .menu-info-row,
   .game-board--setup .status-row {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .card-table {

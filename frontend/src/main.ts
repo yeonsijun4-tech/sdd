@@ -141,17 +141,58 @@ function isMobileDevice(): boolean {
 }
 
 function isWindowFullscreen(): boolean {
-  if (document.fullscreenElement) return true;
-  const tolerance = 100;
-  return (
-    window.innerWidth >= window.screen.width - tolerance &&
-    window.innerHeight >= window.screen.height - tolerance
-  );
+  const doc = document as Document & {
+    webkitFullscreenElement?: Element | null;
+    msFullscreenElement?: Element | null;
+  };
+
+  if (doc.fullscreenElement || doc.webkitFullscreenElement || doc.msFullscreenElement) {
+    return true;
+  }
+
+  const tolerance = 64;
+  const availW = window.screen.availWidth;
+  const availH = window.screen.availHeight;
+  const outerOk =
+    window.outerWidth >= availW - tolerance && window.outerHeight >= availH - tolerance;
+  const innerOk =
+    window.innerWidth >= availW - tolerance && window.innerHeight >= availH - tolerance;
+  const viewport = window.visualViewport;
+  const visualOk = viewport
+    ? viewport.width >= availW - tolerance && viewport.height >= availH - tolerance
+    : false;
+  const chromeHidden =
+    window.outerHeight - window.innerHeight < 12 &&
+    window.outerWidth - window.innerWidth < 12 &&
+    window.innerHeight >= availH - tolerance;
+
+  return outerOk || innerOk || visualOk || chromeHidden;
 }
 
 function isPlayBlocked(): boolean {
   if (isMobileDevice()) return false;
   return !isWindowFullscreen();
+}
+
+async function enterFullscreenMode() {
+  const element = document.documentElement as HTMLElement & {
+    webkitRequestFullscreen?: () => Promise<void>;
+    msRequestFullscreen?: () => Promise<void>;
+  };
+
+  try {
+    if (element.requestFullscreen) {
+      await element.requestFullscreen();
+    } else if (element.webkitRequestFullscreen) {
+      await element.webkitRequestFullscreen();
+    } else if (element.msRequestFullscreen) {
+      await element.msRequestFullscreen();
+    } else {
+      showToast("F11을 눌러 전체 화면으로 전환해 주세요.", "error");
+    }
+  } catch {
+    showToast("F11을 눌러 전체 화면으로 전환해 주세요.", "error");
+  }
 }
 
 function ensurePlayAllowed(): boolean {
@@ -160,61 +201,45 @@ function ensurePlayAllowed(): boolean {
   return false;
 }
 
-function renderFullscreenGate(): string {
+function renderFullscreenGatePage(): string {
   return `
-    <div class="fullscreen-gate" aria-live="polite">
+    <div class="fullscreen-gate-page" aria-live="polite">
       <div class="fullscreen-gate-card card-surface holo-border">
         <p class="fullscreen-gate-label holo-text">F11을 눌러주세요.</p>
-        <span class="fullscreen-gate-sub">전체 화면에서만 플레이할 수 있습니다.</span>
+        <span class="fullscreen-gate-sub">전체 화면에서만 이용할 수 있습니다.</span>
+        <button class="btn btn-primary holo-btn fullscreen-gate-btn" type="button" data-action="enter-fullscreen">
+          전체 화면 들어가기
+        </button>
       </div>
     </div>
   `;
 }
 
-function renderGamePlayShell(content: string): string {
-  const blocked = isPlayBlocked();
-  return `
-    <div class="game-play-shell${blocked ? " is-play-blocked" : ""}">
-      ${content}
-      ${blocked ? renderFullscreenGate() : ""}
-    </div>
-  `;
-}
-
 function updatePlayBlockDom() {
-  const blocked = isPlayBlocked();
-  document.body.classList.toggle("desktop-play-blocked", blocked && Boolean(state.user));
-
-  const shell = document.querySelector(".game-play-shell");
-  if (!shell) return;
-
-  shell.classList.toggle("is-play-blocked", blocked);
-
-  let gate = shell.querySelector(".fullscreen-gate");
-  if (blocked && !gate) {
-    shell.insertAdjacentHTML("beforeend", renderFullscreenGate());
-  } else if (!blocked && gate) {
-    gate.remove();
+  if (isMobileDevice()) {
+    document.body.classList.remove("desktop-fullscreen-required");
+    document.querySelector(".fullscreen-gate-page")?.remove();
+    return;
   }
 
-  shell
-    .querySelectorAll<HTMLButtonElement>(
-      "[data-action='start-game'], [data-action='guess-up'], [data-action='guess-down'], [data-action='cashout'], [data-action='set-bet']"
-    )
-    .forEach((button) => {
-      button.disabled = blocked;
-    });
+  const blocked = isPlayBlocked();
+  document.body.classList.toggle("desktop-fullscreen-required", blocked);
 
-  const betInput = shell.querySelector<HTMLInputElement>("#bet-amount-input");
-  if (betInput) {
-    betInput.disabled = blocked || betInput.dataset.locked === "1";
+  let gate = document.querySelector(".fullscreen-gate-page");
+  if (blocked && !gate) {
+    document.body.insertAdjacentHTML("beforeend", renderFullscreenGatePage());
+  } else if (!blocked && gate) {
+    gate.remove();
   }
 }
 
 function startFullscreenWatch() {
   const update = () => updatePlayBlockDom();
   window.addEventListener("resize", update);
+  window.addEventListener("focus", update);
   document.addEventListener("fullscreenchange", update);
+  document.addEventListener("webkitfullscreenchange", update as EventListener);
+  window.setInterval(update, 400);
   update();
 }
 
@@ -255,39 +280,59 @@ function startMouseTrail() {
   window.addEventListener(
     "mousemove",
     (event) => {
-      mouseTrailPoints.push({ x: event.clientX, y: event.clientY, life: 1 });
-      if (mouseTrailPoints.length > 52) mouseTrailPoints.shift();
+      const last = mouseTrailPoints[mouseTrailPoints.length - 1];
+      const x = event.clientX;
+      const y = event.clientY;
+
+      if (last) {
+        const dx = x - last.x;
+        const dy = y - last.y;
+        const distance = Math.hypot(dx, dy);
+        const step = 3;
+
+        if (distance > step) {
+          const steps = Math.ceil(distance / step);
+          for (let i = 1; i <= steps; i++) {
+            mouseTrailPoints.push({
+              x: last.x + (dx * i) / steps,
+              y: last.y + (dy * i) / steps,
+              life: 1,
+            });
+          }
+        } else {
+          mouseTrailPoints.push({ x, y, life: 1 });
+        }
+      } else {
+        mouseTrailPoints.push({ x, y, life: 1 });
+      }
+
+      if (mouseTrailPoints.length > 140) {
+        mouseTrailPoints.splice(0, mouseTrailPoints.length - 140);
+      }
     },
     { passive: true }
   );
 
   const draw = () => {
     ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+    ctx.setLineDash([]);
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    ctx.lineWidth = 2.8;
 
     for (let i = 1; i < mouseTrailPoints.length; i++) {
       const from = mouseTrailPoints[i - 1];
       const to = mouseTrailPoints[i];
-      const alpha = Math.min(from.life, to.life) * 0.52;
+      const alpha = Math.min(from.life, to.life) * 0.68;
       ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-      ctx.lineWidth = 2.4;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
       ctx.stroke();
     }
 
-    const head = mouseTrailPoints[mouseTrailPoints.length - 1];
-    if (head) {
-      ctx.fillStyle = `rgba(255, 255, 255, ${head.life * 0.65})`;
-      ctx.beginPath();
-      ctx.arc(head.x, head.y, 2.2, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
     for (const point of mouseTrailPoints) {
-      point.life -= 0.035;
+      point.life -= 0.022;
     }
 
     while (mouseTrailPoints.length > 0 && mouseTrailPoints[0].life <= 0) {
@@ -1259,8 +1304,6 @@ function renderGameBoard() {
   const balance = state.user?.points ?? 0;
   const presetAmounts = BET_PRESETS;
   const canStart = balance > 0;
-  const playBlocked = isPlayBlocked();
-  const playDisabled = playBlocked ? "disabled" : "";
 
   return `
     <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"}">
@@ -1302,14 +1345,14 @@ function renderGameBoard() {
         canPlay
           ? `
         <div class="choice-row choice-dock choice-row-dual">
-          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true" ${playDisabled}>
+          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
             <span class="choice-label">업 ▲</span>
             <div class="choice-face">
               <span>확률 ${upPercent}%</span>
               <strong>성공 시 x${winMultiplier}</strong>
             </div>
           </button>
-          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true" ${playDisabled}>
+          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
             <span class="choice-label">다운 ▼</span>
             <div class="choice-face">
               <span>확률 ${downPercent}%</span>
@@ -1331,7 +1374,7 @@ function renderGameBoard() {
               <span class="bet-amount-label">현재 미확정 포인트</span>
               <strong id="bet-display">${formatPoints(bettingAmount)}</strong>
             </div>
-            <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout || playBlocked ? "disabled" : ""}>그만하기</button>
+            <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
           </div>
           <small>2턴 이상 성공해야 그만하기가 열립니다. 열리면 미확정 포인트 전체가 보유 포인트로 들어옵니다. 실패하면 미확정 포인트를 잃습니다.</small>
         `
@@ -1354,7 +1397,7 @@ function renderGameBoard() {
               placeholder="예: 1000"
               value="${state.betInput}"
               data-locked="${canStart ? "0" : "1"}"
-              ${canStart && !playBlocked ? "" : "disabled"}
+              ${canStart ? "" : "disabled"}
             />
             <span class="bet-input-unit">P</span>
           </div>
@@ -1366,19 +1409,19 @@ function renderGameBoard() {
               ${presetAmounts
                 .map(
                   (amount) =>
-                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}" ${playDisabled}>${amount.toLocaleString("ko-KR")}P</button>`
+                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}">${amount.toLocaleString("ko-KR")}P</button>`
                 )
                 .join("")}
               ${
                 balance > 0
-                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-bet-mode="set" data-amount="${balance}" ${playDisabled}>전액</button>`
+                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-bet-mode="set" data-amount="${balance}">전액</button>`
                   : ""
               }
             </div>
           `
               : ""
           }
-          <button class="btn btn-primary holo-btn bet-start-btn" data-action="start-game" data-busy-toggle="true" ${canStart && !playBlocked ? "" : "disabled"}>
+          <button class="btn btn-primary holo-btn bet-start-btn" data-action="start-game" data-busy-toggle="true" ${canStart ? "" : "disabled"}>
             포인트 사용하고 게임 시작
           </button>
           ${
@@ -1456,9 +1499,7 @@ function renderApp() {
       <main class="layout game-layout">
         <div class="layout-spacer" aria-hidden="true"></div>
         <section class="main-column game-center-column">
-          ${renderGamePlayShell(
-            state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()
-          )}
+          ${state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()}
         </section>
         ${renderRankingPanel()}
       </main>
@@ -1469,12 +1510,12 @@ function renderApp() {
   updateToast();
   if (state.user) {
     startSessionClock();
-    updatePlayBlockDom();
   }
 }
 
 function render() {
   renderApp();
+  updatePlayBlockDom();
 }
 
 async function switchAuthMode(mode: "login" | "register") {
@@ -1684,7 +1725,7 @@ function bindGlobalEvents() {
     if (target.name === "captchaAnswer") state.authDraft.captchaAnswer = target.value;
   });
 
-  app.addEventListener("click", (event) => {
+  document.addEventListener("click", (event) => {
     const target = event.target;
     if (!(target instanceof Element)) return;
 
@@ -1742,6 +1783,9 @@ function bindGlobalEvents() {
       case "open-patch":
         state.activeModal = "patch";
         render();
+        break;
+      case "enter-fullscreen":
+        void enterFullscreenMode();
         break;
       case "auth-submit": {
         const form = document.querySelector<HTMLFormElement>("#auth-form");

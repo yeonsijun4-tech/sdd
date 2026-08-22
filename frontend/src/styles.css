@@ -110,46 +110,48 @@ input {
   z-index: 1;
 }
 
-.game-play-shell {
-  position: relative;
-  min-height: 0;
-}
-
-.game-play-shell.is-play-blocked .game-board,
-.game-play-shell.is-play-blocked .coming-soon-board {
+body.desktop-fullscreen-required #app {
   pointer-events: none;
   user-select: none;
-  filter: blur(2px) brightness(0.55);
 }
 
-.fullscreen-gate {
-  position: absolute;
+.fullscreen-gate-page {
+  position: fixed;
   inset: 0;
-  z-index: 30;
+  z-index: 100000;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 20px;
+  padding: 24px;
   pointer-events: auto;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(6px);
 }
 
 .fullscreen-gate-card {
-  width: min(420px, 100%);
-  padding: 28px 32px;
+  width: min(460px, 100%);
+  padding: 32px 36px;
   text-align: center;
-  background: rgba(0, 0, 0, 0.92);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+  background: rgba(0, 0, 0, 0.96);
+  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.75);
 }
 
 .fullscreen-gate-label {
   margin: 0 0 10px;
-  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  font-size: clamp(1.6rem, 4vw, 2.4rem);
   line-height: 1.2;
 }
 
 .fullscreen-gate-sub {
+  display: block;
   color: rgba(255, 255, 255, 0.72);
-  font-size: 0.92rem;
+  font-size: 0.96rem;
+  line-height: 1.5;
+}
+
+.fullscreen-gate-btn {
+  margin-top: 18px;
+  min-width: 180px;
 }
 
 .mouse-trail-canvas {
@@ -2284,16 +2286,6 @@ tr.is-me {
 
   .bet-amount-input {
     font-size: 1rem;
-  }
-
-  .fullscreen-gate {
-    display: none;
-  }
-
-  .game-play-shell.is-play-blocked .game-board,
-  .game-play-shell.is-play-blocked .coming-soon-board {
-    pointer-events: auto;
-    filter: none;
   }
 
   .page-shell.game-page .game-board--setup .card-table {

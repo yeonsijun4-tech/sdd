@@ -1,4 +1,3 @@
-const BASE_ONLINE = 50;
 const TTL_MS = 90_000;
 
 const connections = new Map<string, number>();
@@ -31,5 +30,5 @@ export function removeConnection(clientId: string): number {
 
 export function getOnlineCount(): number {
   pruneStale();
-  return BASE_ONLINE + connections.size;
+  return connections.size;
 }

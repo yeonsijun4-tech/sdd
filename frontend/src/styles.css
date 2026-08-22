@@ -247,6 +247,36 @@ input {
   font-weight: 700;
 }
 
+.nickname-with-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.dev-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(255, 215, 0, 0.75);
+  background: rgba(255, 215, 0, 0.14);
+  color: #ffd700;
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  line-height: 1;
+  text-shadow: 0 0 8px rgba(255, 215, 0, 0.35);
+}
+
+.site-header .brand-sub .nickname-with-badge {
+  gap: 8px;
+}
+
+.site-header .brand-sub .dev-badge {
+  font-size: 0.62rem;
+}
+
 .site-header {
   display: flex;
   align-items: center;

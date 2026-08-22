@@ -86,7 +86,7 @@ const state: AppState = {
   activeGame: "updown",
   rememberLogin: getRememberLogin(),
   sessionIp: "확인 중",
-  onlineCount: 50,
+  onlineCount: 0,
   betInput: loadSavedBetInput(),
   authDraft: {
     nickname: "",
@@ -210,6 +210,19 @@ function startPresenceTracking() {
 const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
 const GAME_ICON = "/assets/1zuxm-icon.png";
 const LOGIN_ACCESS_CODE = "0828";
+const DEV_NICKNAME = "ysjyoun";
+
+function isDevNickname(nickname: string): boolean {
+  return nickname.toLowerCase() === DEV_NICKNAME.toLowerCase();
+}
+
+function renderNicknameWithDevBadge(nickname: string): string {
+  if (!isDevNickname(nickname)) {
+    return nickname;
+  }
+
+  return `<span class="nickname-with-badge">${nickname}<span class="dev-badge">DEV</span></span>`;
+}
 
 function getCurrentBetInputAmount(): number {
   const raw = document.querySelector<HTMLInputElement>("#bet-amount-input")?.value ?? state.betInput;
@@ -669,7 +682,7 @@ function renderAccessCodeModal() {
       <div class="modal card-surface holo-border access-code-modal">
         <div class="modal-header">
           <h2 class="holo-text">로그인 코드</h2>
-          <p class="text-readable">${nickname}님, 입장 코드를 입력해 주세요.</p>
+          <p class="text-readable">${renderNicknameWithDevBadge(nickname)}님, 입장 코드를 입력해 주세요.</p>
         </div>
         <form id="access-code-form" class="auth-form" novalidate>
           <label>
@@ -874,7 +887,7 @@ function renderInfoModal() {
   const bodies = {
     profile: `
       <div class="info-grid">
-        <div><span>닉네임</span><strong>${state.user.nickname}</strong></div>
+        <div><span>닉네임</span><strong>${renderNicknameWithDevBadge(state.user.nickname)}</strong></div>
         <div><span>보유 포인트</span><strong>${formatPoints(state.user.points)}</strong></div>
         <div><span>내 랭킹</span><strong>${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
         <div><span>최고 연승</span><strong>${state.user.maxStreak}</strong></div>
@@ -940,9 +953,9 @@ function renderRankingTableBody(): string {
   return state.rankings
     .map(
       (row) => `
-                <tr class="${state.user?.nickname === row.nickname ? "is-me" : ""}">
+                <tr class="${state.user?.nickname.toLowerCase() === row.nickname.toLowerCase() ? "is-me" : ""}">
                   <td class="holo-text">#${row.rank}</td>
-                  <td>${row.nickname}</td>
+                  <td>${renderNicknameWithDevBadge(row.nickname)}</td>
                   <td>${formatPoints(row.points)}</td>
                   <td>${row.maxStreak}</td>
                   <td>${formatPoints(row.maxSessionGain)}</td>
@@ -971,7 +984,9 @@ function updateRankingPanelDom() {
     strongs[0].textContent = state.user?.rank ? `#${state.user.rank}` : "-";
   }
   if (spans[1]) {
-    spans[1].textContent = state.user?.nickname ?? "게스트";
+    spans[1].innerHTML = state.user
+      ? renderNicknameWithDevBadge(state.user.nickname)
+      : "게스트";
   }
   if (strongs[1]) {
     strongs[1].textContent = formatPoints(state.user?.points ?? 0);
@@ -990,7 +1005,7 @@ function renderRankingPanel() {
       <div class="my-rank-box">
         <span>내 순위</span>
         <strong class="holo-text">${myRankText}</strong>
-        <span>${state.user?.nickname ?? "게스트"}</span>
+        <span>${state.user ? renderNicknameWithDevBadge(state.user.nickname) : "게스트"}</span>
         <strong class="holo-text">${formatPoints(state.user?.points ?? 0)}</strong>
       </div>
       <div class="ranking-table-wrap">
@@ -1209,7 +1224,7 @@ function renderApp() {
             <img src="${GAME_ICON}" alt="" class="brand-icon" width="28" height="28" />
             <span class="brand-mark holo-text">1ZUXM</span>
           </div>
-          <span class="brand-sub">${state.user.nickname}</span>
+          <span class="brand-sub">${renderNicknameWithDevBadge(state.user.nickname)}</span>
         </div>
         <button class="btn btn-ghost header-logout" data-action="logout" type="button">로그아웃</button>
       </header>

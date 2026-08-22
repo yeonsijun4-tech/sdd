@@ -39,7 +39,7 @@ interface AppState {
   activeGame: "updown" | "oddeven" | "slot";
   secretTapCount: number;
   secretTapAt: number;
-  secretFlow: null | "confirm" | "code" | "twofa";
+  secretFlow: null | "confirm" | "code" | "twofa" | "denied";
   secretVaultUnlocked: boolean;
   secretDraft: {
     code: string;
@@ -1443,6 +1443,7 @@ function resetSecretFlow() {
   state.secretFlow = null;
   state.secretDraft.code = "";
   state.secretDraft.twofa = "";
+  updateSecretVaultDom();
 }
 
 function handleSecretHit() {
@@ -1456,7 +1457,7 @@ function handleSecretHit() {
   if (state.secretTapCount >= SECRET_TAP_TARGET) {
     state.secretTapCount = 0;
     state.secretFlow = "confirm";
-    render();
+    updateSecretVaultDom();
   }
 }
 
@@ -1472,8 +1473,27 @@ function renderSecretVaultModals() {
           </div>
           <div class="secret-vault-actions">
             <button class="btn btn-primary holo-btn" type="button" data-action="secret-confirm-yes">YES</button>
-            <button class="btn btn-ghost" type="button" data-action="secret-confirm-no">NO</button>
+            <button class="btn btn-ghost secret-vault-no-btn" type="button" data-action="secret-confirm-no">NO</button>
           </div>
+        </div>
+      </div>
+    `;
+  }
+
+  if (state.secretFlow === "denied") {
+    return `
+      <div class="modal-backdrop secret-vault-backdrop">
+        <div class="modal card-surface holo-border secret-vault-modal">
+          <div class="modal-header">
+            <h2 class="secret-vault-title">ACCESS DENIED</h2>
+            <p class="secret-vault-copy">
+              최고 획득 ${formatPoints(SLOT_MIN_MAX_SESSION_GAIN)} 이상만 입장할 수 있습니다.
+            </p>
+            <p class="secret-vault-copy">
+              현재 최고 획득: ${formatPoints(state.user.maxSessionGain)}
+            </p>
+          </div>
+          <button class="btn btn-primary holo-btn" type="button" data-action="secret-denied-close">확인</button>
         </div>
       </div>
     `;
@@ -1484,10 +1504,10 @@ function renderSecretVaultModals() {
       <div class="modal-backdrop secret-vault-backdrop">
         <div class="modal card-surface holo-border secret-vault-modal">
           <div class="modal-header">
-            <h2 class="holo-text">ACCESS CODE</h2>
-            <p class="text-readable">번호를 입력하세요.</p>
+            <h2 class="secret-vault-title">ACCESS CODE</h2>
+            <p class="secret-vault-copy">번호를 입력하세요.</p>
           </div>
-          <form id="secret-code-form" class="auth-form" novalidate>
+          <form id="secret-code-form" class="auth-form secret-vault-form" novalidate>
             <label>
               <span>번호</span>
               <input
@@ -1510,10 +1530,10 @@ function renderSecretVaultModals() {
     <div class="modal-backdrop secret-vault-backdrop">
       <div class="modal card-surface holo-border secret-vault-modal">
         <div class="modal-header">
-          <h2 class="holo-text">2차 인증</h2>
-          <p class="text-readable">2차 인증 번호를 입력하세요.</p>
+          <h2 class="secret-vault-title">2차 인증</h2>
+          <p class="secret-vault-copy">2차 인증 번호를 입력하세요.</p>
         </div>
-        <form id="secret-twofa-form" class="auth-form" novalidate>
+        <form id="secret-twofa-form" class="auth-form secret-vault-form" novalidate>
           <label>
             <span>2차 인증</span>
             <input
@@ -1532,6 +1552,14 @@ function renderSecretVaultModals() {
   `;
 }
 
+function updateSecretVaultDom() {
+  document.querySelectorAll(".secret-vault-backdrop").forEach((element) => element.remove());
+  const markup = renderSecretVaultModals();
+  if (markup) {
+    document.body.insertAdjacentHTML("beforeend", markup);
+  }
+}
+
 function canAccessSecretSlot(): boolean {
   return (state.user?.maxSessionGain ?? 0) >= SLOT_MIN_MAX_SESSION_GAIN;
 }
@@ -1544,7 +1572,7 @@ function renderSlotMachine() {
   return `
     <section class="slot-machine card-surface holo-border">
       <div class="slot-machine-header">
-        <h2 class="slot-machine-title holo-text">VAULT SLOTS</h2>
+        <h2 class="slot-machine-title">VAULT SLOTS</h2>
         <button class="btn btn-ghost slot-exit-btn" type="button" data-action="slot-exit">나가기</button>
       </div>
       <p class="slot-machine-sub">
@@ -1594,17 +1622,14 @@ function renderSlotMachine() {
 
 async function unlockSecretVault() {
   if (!canAccessSecretSlot()) {
-    showToast(
-      `최고 획득 ${formatPoints(SLOT_MIN_MAX_SESSION_GAIN)} 이상만 입장할 수 있습니다.`,
-      "error"
-    );
-    resetSecretFlow();
-    render();
+    state.secretFlow = "denied";
+    updateSecretVaultDom();
     return;
   }
 
   state.secretVaultUnlocked = true;
   state.secretFlow = null;
+  updateSecretVaultDom();
   state.activeGame = "slot";
   state.lastSlotSpin = null;
   if (!state.slotBetInput || Number(state.slotBetInput) < SLOT_MIN_BET) {
@@ -1838,8 +1863,6 @@ function renderApp() {
         </div>
       </header>
 
-      ${renderSecretVaultModals()}
-
       ${state.activeGame === "slot" ? "" : renderUpdateBanner()}
 
       ${state.activeGame === "slot" ? "" : renderMainNav()}
@@ -1862,6 +1885,7 @@ function renderApp() {
     </div>
   `;
   updateToast();
+  updateSecretVaultDom();
   if (state.user) {
     startSessionClock();
   }
@@ -2078,7 +2102,7 @@ function handleSecretCodeSubmit(form: HTMLFormElement) {
   }
 
   state.secretFlow = "twofa";
-  render();
+  updateSecretVaultDom();
   window.requestAnimationFrame(() => {
     document.querySelector<HTMLInputElement>("#secret-twofa-input")?.focus();
   });
@@ -2276,14 +2300,16 @@ function bindGlobalEvents() {
         break;
       case "secret-confirm-yes":
         state.secretFlow = "code";
-        render();
+        updateSecretVaultDom();
         window.requestAnimationFrame(() => {
           document.querySelector<HTMLInputElement>("#secret-code-input")?.focus();
         });
         break;
       case "secret-confirm-no":
         resetSecretFlow();
-        render();
+        break;
+      case "secret-denied-close":
+        resetSecretFlow();
         break;
       case "secret-code-submit": {
         const form = document.querySelector<HTMLFormElement>("#secret-code-form");

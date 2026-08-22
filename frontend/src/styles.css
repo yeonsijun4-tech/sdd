@@ -2508,8 +2508,13 @@ tr.is-me {
   z-index: 3;
 }
 
+.secret-vault-backdrop {
+  z-index: 100010;
+}
+
 .secret-vault-modal {
   max-width: 420px;
+  color: #ffffff;
 }
 
 .secret-vault-title {
@@ -2517,6 +2522,24 @@ tr.is-me {
   font-family: "Orbitron", sans-serif;
   letter-spacing: 0.08em;
   text-align: center;
+  color: #ffffff;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.28);
+}
+
+.secret-vault-copy {
+  margin: 0 0 10px;
+  color: rgba(255, 255, 255, 0.92);
+  line-height: 1.55;
+  text-align: center;
+}
+
+.secret-vault-form label > span {
+  color: #ffffff;
+}
+
+.secret-vault-no-btn {
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.24);
 }
 
 .secret-vault-actions {
@@ -2544,6 +2567,8 @@ tr.is-me {
 .slot-machine-title {
   margin: 0;
   font-size: 1.35rem;
+  color: #ffffff;
+  text-shadow: 0 0 16px rgba(255, 215, 120, 0.28);
 }
 
 .slot-exit-btn {
@@ -2552,7 +2577,7 @@ tr.is-me {
 
 .slot-machine-sub {
   margin: 0 0 18px;
-  color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.88);
 }
 
 .slot-reels {
@@ -2638,6 +2663,6 @@ tr.is-me {
 
 .slot-bet-hint {
   margin: 0;
-  color: rgba(255, 255, 255, 0.62);
+  color: rgba(255, 255, 255, 0.82);
   font-size: 0.88rem;
 }

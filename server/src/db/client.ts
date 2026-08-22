@@ -43,9 +43,39 @@ function getPool(): pg.Pool {
   pool = new Pool({
     connectionString,
     ssl: getSslConfig(connectionString),
+    connectionTimeoutMillis: 15_000,
+    idleTimeoutMillis: 30_000,
+    max: 10,
+  });
+
+  pool.on("error", (error) => {
+    console.error("PostgreSQL pool error:", error);
+    void resetPool();
   });
 
   return pool;
+}
+
+async function resetPool(): Promise<void> {
+  if (!pool) return;
+  const current = pool;
+  pool = null;
+  await current.end().catch(() => undefined);
+}
+
+function isPgConnectionError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const candidate = error as { code?: string; message?: string };
+  const code = candidate.code ?? "";
+  const message = candidate.message ?? "";
+  return (
+    ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "57P01", "53300", "08006", "08003", "ECONNABORTED"].includes(
+      code
+    ) ||
+    message.includes("Connection terminated") ||
+    message.includes("connection timeout") ||
+    message.includes("Cannot use a pool after calling end")
+  );
 }
 
 function getSqliteDb(): DatabaseSync {
@@ -91,20 +121,27 @@ export async function initDb(): Promise<void> {
 
   if (mode === "postgres") {
     let lastError: unknown;
-    for (let attempt = 1; attempt <= 5; attempt += 1) {
+    for (let attempt = 1; attempt <= 10; attempt += 1) {
       try {
+        await resetPool();
         await getPool().query(schema);
         console.log("PostgreSQL database ready");
         return;
       } catch (error) {
         lastError = error;
-        console.error(`PostgreSQL init attempt ${attempt}/5 failed:`, error);
-        if (attempt < 5) await sleep(2000 * attempt);
+        console.error(`PostgreSQL init attempt ${attempt}/10 failed:`, error);
+        await resetPool();
+        if (attempt < 10) await sleep(1500 * attempt);
       }
     }
 
+    if (process.env.DATABASE_URL) {
+      throw lastError instanceof Error
+        ? lastError
+        : new Error("PostgreSQL database is unavailable.");
+    }
+
     console.error("PostgreSQL unavailable. Falling back to SQLite:", lastError);
-    pool = null;
     dbMode = "sqlite";
     getSqliteDb().exec(fs.readFileSync(resolveSqliteSchemaPath(), "utf8"));
     console.warn(
@@ -119,12 +156,29 @@ export async function initDb(): Promise<void> {
   );
 }
 
+async function queryPostgres<T extends pg.QueryResultRow>(
+  text: string,
+  params: unknown[],
+  attempt = 0
+): Promise<pg.QueryResult<T>> {
+  try {
+    return await getPool().query<T>(text, params);
+  } catch (error) {
+    if (attempt < 2 && isPgConnectionError(error)) {
+      await resetPool();
+      await sleep(400 * (attempt + 1));
+      return queryPostgres(text, params, attempt + 1);
+    }
+    throw error;
+  }
+}
+
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(
   text: string,
   params: unknown[] = []
 ): Promise<pg.QueryResult<T>> {
   if (resolveDbMode() === "postgres") {
-    return getPool().query<T>(text, params);
+    return queryPostgres<T>(text, params);
   }
 
   const statement = getSqliteDb().prepare(toSqliteSql(text));

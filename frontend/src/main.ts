@@ -450,10 +450,11 @@ const PATCH_NOTES_V10_HTML = `
 `;
 const GAME_ICON = "/assets/1zuxm-icon.png";
 const LOGIN_ACCESS_CODE = "0828";
-const DEV_NICKNAME = "ysjyoun";
+const DEV_NICKNAMES = ["ysjyoun", "ysjyoun0"];
 
 function isDevNickname(nickname: string): boolean {
-  return nickname.toLowerCase() === DEV_NICKNAME.toLowerCase();
+  const normalized = nickname.toLowerCase();
+  return DEV_NICKNAMES.some((devNickname) => devNickname.toLowerCase() === normalized);
 }
 
 function renderNicknameWithDevBadge(nickname: string): string {

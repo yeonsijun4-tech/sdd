@@ -58,7 +58,13 @@ auth.post("/register", async (c) => {
     return c.json({ error: "비밀번호는 6~64자여야 합니다." }, 400);
   }
 
-  const existing = await findUserByNickname(nickname);
+  let existing;
+  try {
+    existing = await findUserByNickname(nickname);
+  } catch (error) {
+    console.error("Register lookup failed:", error);
+    return c.json({ error: "서버가 깨어나는 중입니다. 잠시 후 다시 시도해 주세요." }, 503);
+  }
   if (existing) {
     return c.json({ error: "이미 사용 중인 닉네임입니다." }, 409);
   }
@@ -101,7 +107,14 @@ auth.post("/login", async (c) => {
   const password = body.password ?? "";
   const rememberMe = body.rememberMe !== false;
 
-  const user = await findUserByNickname(nickname);
+  let user;
+  try {
+    user = await findUserByNickname(nickname);
+  } catch (error) {
+    console.error("Login lookup failed:", error);
+    return c.json({ error: "서버가 깨어나는 중입니다. 잠시 후 다시 시도해 주세요." }, 503);
+  }
+
   if (!user || !(await verifyPassword(password, user.password_hash))) {
     return c.json({ error: "닉네임 또는 비밀번호가 올바르지 않습니다." }, 401);
   }

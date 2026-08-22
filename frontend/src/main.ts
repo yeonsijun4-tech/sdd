@@ -36,6 +36,12 @@ interface AppState {
   rememberLogin: boolean;
   sessionIp: string;
   betInput: string;
+  authDraft: {
+    nickname: string;
+    password: string;
+    accessCode: string;
+    captchaAnswer: string;
+  };
 }
 
 const state: AppState = {
@@ -56,6 +62,12 @@ const state: AppState = {
   rememberLogin: getRememberLogin(),
   sessionIp: "확인 중",
   betInput: "",
+  authDraft: {
+    nickname: "",
+    password: "",
+    accessCode: "",
+    captchaAnswer: "",
+  },
 };
 
 let rankingTimer: number | null = null;
@@ -552,7 +564,7 @@ function renderAuthModal() {
               inputmode="numeric"
               autocomplete="off"
               placeholder="정답 입력"
-              required
+              value="${state.authDraft.captchaAnswer}"
             />
           </label>
           <input type="hidden" name="captchaId" value="${state.captcha?.captchaId ?? ""}" />
@@ -567,14 +579,28 @@ function renderAuthModal() {
           <h2 class="holo-text">${state.authMode === "login" ? "로그인" : "회원가입"}</h2>
           <p class="text-readable">가상 포인트만 사용하는 UP/DOWN 게임입니다.</p>
         </div>
-        <form id="auth-form" class="auth-form">
+        <form id="auth-form" class="auth-form" novalidate>
           <label>
             <span>닉네임</span>
-            <input name="nickname" maxlength="16" autocomplete="username" required />
+            <input
+              name="nickname"
+              maxlength="16"
+              autocomplete="username"
+              value="${state.authDraft.nickname}"
+              required
+            />
           </label>
           <label>
             <span>비밀번호</span>
-            <input name="password" type="password" minlength="6" maxlength="64" autocomplete="current-password" required />
+            <input
+              name="password"
+              type="password"
+              minlength="6"
+              maxlength="64"
+              autocomplete="current-password"
+              value="${state.authDraft.password}"
+              required
+            />
           </label>
           <label>
             <span>로그인 코드</span>
@@ -584,6 +610,7 @@ function renderAuthModal() {
               autocomplete="off"
               maxlength="16"
               placeholder="로그인 코드 입력"
+              value="${state.authDraft.accessCode}"
               required
             />
           </label>
@@ -1036,22 +1063,69 @@ function render() {
 }
 
 async function switchAuthMode(mode: "login" | "register") {
+  const form = document.querySelector<HTMLFormElement>("#auth-form");
+  if (form) syncAuthDraftFromForm(form);
+
   state.authMode = mode;
   state.showCaptchaHelp = false;
   if (mode === "register") {
     await loadCaptcha({ silent: true });
   } else {
     state.captcha = null;
+    state.authDraft.captchaAnswer = "";
   }
   render();
 }
 
-async function handleAuthSubmit(form: HTMLFormElement) {
+function syncAuthDraftFromForm(form: HTMLFormElement) {
   const formData = new FormData(form);
-  const nickname = String(formData.get("nickname") ?? "");
-  const password = String(formData.get("password") ?? "");
-  const accessCode = String(formData.get("accessCode") ?? "").trim();
-  const rememberMe = formData.get("rememberMe") === "on";
+  state.authDraft.nickname = String(formData.get("nickname") ?? "");
+  state.authDraft.password = String(formData.get("password") ?? "");
+  state.authDraft.accessCode = String(formData.get("accessCode") ?? "");
+  state.authDraft.captchaAnswer = String(formData.get("captchaAnswer") ?? "");
+}
+
+function validateAuthForm(form: HTMLFormElement): boolean {
+  syncAuthDraftFromForm(form);
+
+  if (!state.authDraft.nickname.trim()) {
+    showToast("닉네임을 입력해 주세요.", "error");
+    return false;
+  }
+
+  if (state.authDraft.password.length < 6) {
+    showToast("비밀번호는 6자 이상 입력해 주세요.", "error");
+    return false;
+  }
+
+  if (!state.authDraft.accessCode.trim()) {
+    showToast("로그인 코드를 입력해 주세요.", "error");
+    return false;
+  }
+
+  if (state.authMode === "register") {
+    if (!state.captcha?.captchaId) {
+      showToast("보안코드를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.", "error");
+      void loadCaptcha({ silent: true });
+      return false;
+    }
+    if (!state.authDraft.captchaAnswer.trim()) {
+      showToast("보안코드 정답을 입력해 주세요.", "error");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+async function handleAuthSubmit(form: HTMLFormElement) {
+  if (!validateAuthForm(form)) return;
+
+  const nickname = state.authDraft.nickname.trim();
+  const password = state.authDraft.password;
+  const accessCode = state.authDraft.accessCode.trim();
+  const rememberInput = form.elements.namedItem("rememberMe");
+  const rememberMe = rememberInput instanceof HTMLInputElement ? rememberInput.checked : false;
   state.rememberLogin = rememberMe;
   setRememberLogin(rememberMe);
 
@@ -1061,8 +1135,8 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   }
 
   if (state.authMode === "register") {
-    const captchaId = String(formData.get("captchaId") ?? "");
-    const captchaAnswer = String(formData.get("captchaAnswer") ?? "");
+    const captchaId = state.captcha?.captchaId ?? "";
+    const captchaAnswer = state.authDraft.captchaAnswer.trim();
 
     const result = await withBusy(async () =>
       api.register(nickname, password, captchaId, captchaAnswer, accessCode)
@@ -1080,6 +1154,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
     state.activeSession = null;
     state.board = null;
     state.lastResult = null;
+    state.authDraft = { nickname: "", password: "", accessCode: "", captchaAnswer: "" };
     showToast(`${result.user.nickname}님, 환영합니다.`);
     void loadSessionInfo();
     startSessionClock();
@@ -1099,6 +1174,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   state.activeSession = null;
   state.board = null;
   state.lastResult = null;
+  state.authDraft = { nickname: "", password: "", accessCode: "", captchaAnswer: "" };
   showToast(`${result.user.nickname}님, 환영합니다.`);
   void loadSessionInfo();
   startSessionClock();
@@ -1127,9 +1203,21 @@ function bindGlobalEvents() {
 
   app.addEventListener("input", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLInputElement) || target.id !== "bet-amount-input") return;
-    state.betInput = target.value;
-    target.classList.remove("bet-input-error");
+    if (!(target instanceof HTMLInputElement)) return;
+
+    if (target.id === "bet-amount-input") {
+      state.betInput = target.value;
+      target.classList.remove("bet-input-error");
+      return;
+    }
+
+    const form = target.closest("#auth-form");
+    if (!form) return;
+
+    if (target.name === "nickname") state.authDraft.nickname = target.value;
+    if (target.name === "password") state.authDraft.password = target.value;
+    if (target.name === "accessCode") state.authDraft.accessCode = target.value;
+    if (target.name === "captchaAnswer") state.authDraft.captchaAnswer = target.value;
   });
 
   app.addEventListener("click", (event) => {

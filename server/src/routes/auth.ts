@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { createCaptcha, verifyCaptcha } from "../auth/captcha.js";
-import { verifyAccessCode } from "../auth/accessCode.js";
 import { readJsonBody } from "../lib/http.js";
 import {
   createId,
@@ -31,15 +30,10 @@ auth.post("/register", async (c) => {
     password?: string;
     captchaId?: string;
     captchaAnswer?: string;
-    accessCode?: string;
   }>(c);
 
   if (!body) {
     return c.json({ error: "요청 형식이 올바르지 않습니다." }, 400);
-  }
-
-  if (!verifyAccessCode(body.accessCode)) {
-    return c.json({ error: "로그인 코드가 올바르지 않습니다.", forceExit: true }, 403);
   }
 
   const nickname = sanitizeNickname(body.nickname ?? "");
@@ -97,15 +91,10 @@ auth.post("/login", async (c) => {
     nickname?: string;
     password?: string;
     rememberMe?: boolean;
-    accessCode?: string;
   }>(c);
 
   if (!body) {
     return c.json({ error: "요청 형식이 올바르지 않습니다." }, 400);
-  }
-
-  if (!verifyAccessCode(body.accessCode)) {
-    return c.json({ error: "로그인 코드가 올바르지 않습니다.", forceExit: true }, 403);
   }
 
   const nickname = sanitizeNickname(body.nickname ?? "");

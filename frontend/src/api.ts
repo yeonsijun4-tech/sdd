@@ -134,24 +134,18 @@ export const api = {
   captcha() {
     return request<CaptchaChallenge>("/api/auth/captcha");
   },
-  register(
-    nickname: string,
-    password: string,
-    captchaId: string,
-    captchaAnswer: string,
-    accessCode: string
-  ) {
+  register(nickname: string, password: string, captchaId: string, captchaAnswer: string) {
     return request<{ token: string; user: PublicUser }>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ nickname, password, captchaId, captchaAnswer, accessCode }),
+      body: JSON.stringify({ nickname, password, captchaId, captchaAnswer }),
     });
   },
-  login(nickname: string, password: string, rememberMe: boolean, accessCode: string) {
+  login(nickname: string, password: string, rememberMe: boolean) {
     return request<{ token: string; user: PublicUser; rememberMe?: boolean }>(
       "/api/auth/login",
       {
         method: "POST",
-        body: JSON.stringify({ nickname, password, rememberMe, accessCode }),
+        body: JSON.stringify({ nickname, password, rememberMe }),
       }
     );
   },

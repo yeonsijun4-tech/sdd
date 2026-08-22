@@ -43,6 +43,11 @@ interface AppState {
     captchaAnswer: string;
   };
   authSubmitting: boolean;
+  pendingAuth: {
+    token: string;
+    rememberMe: boolean;
+    nickname: string;
+  } | null;
 }
 
 const state: AppState = {
@@ -70,6 +75,7 @@ const state: AppState = {
     captchaAnswer: "",
   },
   authSubmitting: false,
+  pendingAuth: null,
 };
 
 let rankingTimer: number | null = null;
@@ -560,6 +566,38 @@ function renderSiteFooter() {
   `;
 }
 
+function renderAccessCodeModal() {
+  const nickname = state.pendingAuth?.nickname ?? "";
+
+  return `
+    <div class="modal-backdrop access-code-backdrop">
+      <div class="modal card-surface holo-border access-code-modal">
+        <div class="modal-header">
+          <h2 class="holo-text">로그인 코드</h2>
+          <p class="text-readable">${nickname}님, 입장 코드를 입력해 주세요.</p>
+        </div>
+        <form id="access-code-form" class="auth-form" novalidate>
+          <label>
+            <span>로그인 코드</span>
+            <input
+              id="access-code-input"
+              name="accessCode"
+              inputmode="numeric"
+              autocomplete="off"
+              maxlength="16"
+              placeholder="로그인 코드 입력"
+              value="${state.authDraft.accessCode}"
+            />
+          </label>
+          <button class="btn btn-primary holo-btn" type="button" data-action="access-code-submit">
+            입장하기
+          </button>
+        </form>
+      </div>
+    </div>
+  `;
+}
+
 function renderAuthModal() {
   const captchaBlock =
     state.authMode === "register"
@@ -634,17 +672,6 @@ function renderAuthModal() {
               maxlength="64"
               autocomplete="current-password"
               value="${state.authDraft.password}"
-            />
-          </label>
-          <label>
-            <span>로그인 코드</span>
-            <input
-              name="accessCode"
-              inputmode="numeric"
-              autocomplete="off"
-              maxlength="16"
-              placeholder="로그인 코드 입력"
-              value="${state.authDraft.accessCode}"
             />
           </label>
           ${captchaBlock}
@@ -1063,7 +1090,7 @@ function renderApp() {
             <span class="brand-sub">Virtual Point Game</span>
           </div>
         </header>
-        ${renderAuthModal()}
+        ${state.pendingAuth ? renderAccessCodeModal() : renderAuthModal()}
         ${renderSiteFooter()}
       </div>
     `;
@@ -1122,6 +1149,12 @@ async function switchAuthMode(mode: "login" | "register") {
   render();
 }
 
+function completeAuthSession(token: string, rememberMe: boolean) {
+  setToken(token);
+  setRememberLogin(rememberMe);
+  window.location.reload();
+}
+
 function syncAuthDraftFromForm(form: HTMLFormElement) {
   const formData = new FormData(form);
   state.authDraft.nickname = String(formData.get("nickname") ?? "");
@@ -1134,28 +1167,23 @@ function validateAuthForm(form: HTMLFormElement): boolean {
   syncAuthDraftFromForm(form);
 
   if (!state.authDraft.nickname.trim()) {
-    showToast("닉네임을 입력해 주세요.", "error");
+    window.alert("닉네임을 입력해 주세요.");
     return false;
   }
 
   if (state.authDraft.password.length < 6) {
-    showToast("비밀번호는 6자 이상 입력해 주세요.", "error");
-    return false;
-  }
-
-  if (!state.authDraft.accessCode.trim()) {
-    showToast("로그인 코드를 입력해 주세요.", "error");
+    window.alert("비밀번호는 6자 이상 입력해 주세요.");
     return false;
   }
 
   if (state.authMode === "register") {
     if (!state.captcha?.captchaId) {
-      showToast("보안코드를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.", "error");
+      window.alert("보안코드를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
       void loadCaptcha({ silent: true });
       return false;
     }
     if (!state.authDraft.captchaAnswer.trim()) {
-      showToast("보안코드 정답을 입력해 주세요.", "error");
+      window.alert("보안코드 정답을 입력해 주세요.");
       return false;
     }
   }
@@ -1173,64 +1201,98 @@ async function handleAuthSubmit(form: HTMLFormElement) {
 
   if (!validateAuthForm(form)) return;
 
-  const nickname = state.authDraft.nickname.trim();
-  const password = state.authDraft.password;
-  const accessCode = state.authDraft.accessCode.trim();
+  const formData = new FormData(form);
+  const nickname = String(formData.get("nickname") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
   const rememberInput = form.elements.namedItem("rememberMe");
   const rememberMe = rememberInput instanceof HTMLInputElement ? rememberInput.checked : false;
-  state.rememberLogin = rememberMe;
-  setRememberLogin(rememberMe);
+
+  setAuthSubmitting(true);
+
+  try {
+    if (state.authMode === "register") {
+      const captchaId = String(formData.get("captchaId") ?? "") || state.captcha?.captchaId || "";
+      const captchaAnswer = String(formData.get("captchaAnswer") ?? "").trim();
+
+      try {
+        const result = await api.register(nickname, password, captchaId, captchaAnswer);
+        state.pendingAuth = {
+          token: result.token,
+          rememberMe: true,
+          nickname: result.user.nickname,
+        };
+        state.authDraft.accessCode = "";
+        render();
+        window.requestAnimationFrame(() => {
+          document.querySelector<HTMLInputElement>("#access-code-input")?.focus();
+        });
+        return;
+      } catch (error) {
+        if (error instanceof ApiError && error.status === 409) {
+          const loginResult = await api.login(nickname, password, rememberMe);
+          state.pendingAuth = {
+            token: loginResult.token,
+            rememberMe,
+            nickname: loginResult.user.nickname,
+          };
+          state.authDraft.accessCode = "";
+          render();
+          window.requestAnimationFrame(() => {
+            document.querySelector<HTMLInputElement>("#access-code-input")?.focus();
+          });
+          return;
+        }
+        throw error;
+      }
+    }
+
+    const result = await api.login(nickname, password, rememberMe);
+    state.pendingAuth = {
+      token: result.token,
+      rememberMe,
+      nickname: result.user.nickname,
+    };
+    state.authDraft.accessCode = "";
+    render();
+    window.requestAnimationFrame(() => {
+      document.querySelector<HTMLInputElement>("#access-code-input")?.focus();
+    });
+  } catch (error) {
+    if (error instanceof ApiError && error.forceExit) {
+      forceExitApp(error.message);
+      return;
+    }
+    if (error instanceof ApiError && error.accountDeleted) {
+      handleAccountDeleted(error.message);
+      return;
+    }
+
+    const message =
+      error instanceof Error ? error.message : "로그인 처리 중 오류가 발생했습니다.";
+    window.alert(message);
+    showToast(message, "error");
+
+    if (state.authMode === "register") {
+      await loadCaptcha({ silent: true });
+    }
+  } finally {
+    setAuthSubmitting(false);
+  }
+}
+
+function handleAccessCodeSubmit(form: HTMLFormElement) {
+  if (!state.pendingAuth) return;
+
+  const accessCode = String(new FormData(form).get("accessCode") ?? "").trim();
+  state.authDraft.accessCode = accessCode;
 
   if (accessCode !== LOGIN_ACCESS_CODE) {
+    state.pendingAuth = null;
     forceExitApp("로그인 코드가 틀렸습니다.");
     return;
   }
 
-  if (state.authMode === "register") {
-    const captchaId = state.captcha?.captchaId ?? "";
-    const captchaAnswer = state.authDraft.captchaAnswer.trim();
-
-    const result = await withAuthBusy(async () =>
-      api.register(nickname, password, captchaId, captchaAnswer, accessCode)
-    );
-
-    if (!result) {
-      await loadCaptcha({ silent: true });
-      return;
-    }
-
-    setToken(result.token);
-    setRememberLogin(true);
-    state.rememberLogin = true;
-    state.user = result.user;
-    state.activeSession = null;
-    state.board = null;
-    state.lastResult = null;
-    state.authDraft = { nickname: "", password: "", accessCode: "", captchaAnswer: "" };
-    showToast(`${result.user.nickname}님, 환영합니다.`);
-    void loadSessionInfo();
-    startSessionClock();
-    await refreshRankings();
-    return;
-  }
-
-  const result = await withAuthBusy(async () =>
-    api.login(nickname, password, rememberMe, accessCode)
-  );
-  if (!result) return;
-
-  setToken(result.token);
-  setRememberLogin(rememberMe);
-  state.rememberLogin = rememberMe;
-  state.user = result.user;
-  state.activeSession = null;
-  state.board = null;
-  state.lastResult = null;
-  state.authDraft = { nickname: "", password: "", accessCode: "", captchaAnswer: "" };
-  showToast(`${result.user.nickname}님, 환영합니다.`);
-  void loadSessionInfo();
-  startSessionClock();
-  await refreshRankings();
+  completeAuthSession(state.pendingAuth.token, state.pendingAuth.rememberMe);
 }
 
 function getBetAmountFromInput(): number {
@@ -1248,9 +1310,15 @@ function bindGlobalEvents() {
 
   app.addEventListener("submit", (event) => {
     const target = event.target;
-    if (!(target instanceof HTMLFormElement) || target.id !== "auth-form") return;
+    if (!(target instanceof HTMLFormElement)) return;
     event.preventDefault();
-    void handleAuthSubmit(target);
+    if (target.id === "auth-form") {
+      void handleAuthSubmit(target);
+      return;
+    }
+    if (target.id === "access-code-form") {
+      handleAccessCodeSubmit(target);
+    }
   });
 
   app.addEventListener("input", (event) => {
@@ -1334,6 +1402,11 @@ function bindGlobalEvents() {
       case "auth-submit": {
         const form = document.querySelector<HTMLFormElement>("#auth-form");
         if (form) void handleAuthSubmit(form);
+        break;
+      }
+      case "access-code-submit": {
+        const form = document.querySelector<HTMLFormElement>("#access-code-form");
+        if (form) handleAccessCodeSubmit(form);
         break;
       }
       case "set-login":

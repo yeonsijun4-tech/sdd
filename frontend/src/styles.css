@@ -1889,6 +1889,18 @@ tr.is-me {
   flex-shrink: 0;
 }
 
+.access-code-modal {
+  width: min(380px, 100%);
+}
+
+.access-code-backdrop {
+  z-index: 40;
+}
+
+.access-code-modal .auth-form {
+  margin-top: 12px;
+}
+
 .auth-switch-row {
   display: flex;
   justify-content: center;

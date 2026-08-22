@@ -4,12 +4,14 @@ import path from "node:path";
 import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import pg from "pg";
 import { resolveDatabasePath, resolveSchemaPath, resolveSqliteSchemaPath } from "../lib/paths.js";
+import { isDbConnectionError } from "../lib/dbError.js";
 
 const { Pool } = pg;
 
 type DbMode = "postgres" | "sqlite";
 
 let pool: pg.Pool | null = null;
+let poolResetPromise: Promise<void> | null = null;
 let sqliteDb: DatabaseSync | null = null;
 let dbMode: DbMode | null = null;
 let runtimeJwtSecret: string | null = null;
@@ -43,14 +45,14 @@ function getPool(): pg.Pool {
   pool = new Pool({
     connectionString,
     ssl: getSslConfig(connectionString),
-    connectionTimeoutMillis: 15_000,
-    idleTimeoutMillis: 30_000,
+    connectionTimeoutMillis: 20_000,
+    idleTimeoutMillis: 120_000,
     max: 10,
+    keepAlive: true,
   });
 
   pool.on("error", (error) => {
     console.error("PostgreSQL pool error:", error);
-    void resetPool();
   });
 
   return pool;
@@ -63,19 +65,20 @@ async function resetPool(): Promise<void> {
   await current.end().catch(() => undefined);
 }
 
+async function resetPoolSafe(): Promise<void> {
+  if (poolResetPromise) {
+    await poolResetPromise;
+    return;
+  }
+
+  poolResetPromise = resetPool().finally(() => {
+    poolResetPromise = null;
+  });
+  await poolResetPromise;
+}
+
 function isPgConnectionError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const candidate = error as { code?: string; message?: string };
-  const code = candidate.code ?? "";
-  const message = candidate.message ?? "";
-  return (
-    ["ECONNRESET", "ECONNREFUSED", "ETIMEDOUT", "57P01", "53300", "08006", "08003", "ECONNABORTED"].includes(
-      code
-    ) ||
-    message.includes("Connection terminated") ||
-    message.includes("connection timeout") ||
-    message.includes("Cannot use a pool after calling end")
-  );
+  return isDbConnectionError(error);
 }
 
 function getSqliteDb(): DatabaseSync {
@@ -123,14 +126,15 @@ export async function initDb(): Promise<void> {
     let lastError: unknown;
     for (let attempt = 1; attempt <= 10; attempt += 1) {
       try {
-        await resetPool();
+        await resetPoolSafe();
+        await getPool().query("SELECT 1");
         await getPool().query(schema);
         console.log("PostgreSQL database ready");
         return;
       } catch (error) {
         lastError = error;
         console.error(`PostgreSQL init attempt ${attempt}/10 failed:`, error);
-        await resetPool();
+        await resetPoolSafe();
         if (attempt < 10) await sleep(1500 * attempt);
       }
     }
@@ -161,16 +165,30 @@ async function queryPostgres<T extends pg.QueryResultRow>(
   params: unknown[],
   attempt = 0
 ): Promise<pg.QueryResult<T>> {
+  if (poolResetPromise) {
+    await poolResetPromise;
+  }
+
   try {
     return await getPool().query<T>(text, params);
   } catch (error) {
-    if (attempt < 2 && isPgConnectionError(error)) {
-      await resetPool();
-      await sleep(400 * (attempt + 1));
+    if (attempt < 4 && isPgConnectionError(error)) {
+      await resetPoolSafe();
+      await sleep(300 * 2 ** attempt);
       return queryPostgres(text, params, attempt + 1);
     }
     throw error;
   }
+}
+
+export function startDbKeepAlive(): void {
+  if (resolveDbMode() !== "postgres") return;
+
+  setInterval(() => {
+    void query("SELECT 1").catch((error) => {
+      console.error("Database keep-alive failed:", error);
+    });
+  }, 45_000);
 }
 
 export async function query<T extends pg.QueryResultRow = pg.QueryResultRow>(

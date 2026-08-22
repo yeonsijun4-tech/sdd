@@ -31,6 +31,8 @@ interface AppState {
   } | null;
   toast: string | null;
   toastType: "info" | "error";
+  lastErrorToastMessage: string;
+  lastErrorToastAt: number;
   activeModal: "profile" | "notice" | "patch" | null;
   activeGame: "updown" | "oddeven";
   rememberLogin: boolean;
@@ -82,6 +84,8 @@ const state: AppState = {
   lastResult: null,
   toast: null,
   toastType: "info",
+  lastErrorToastMessage: "",
+  lastErrorToastAt: 0,
   activeModal: null,
   activeGame: "updown",
   rememberLogin: getRememberLogin(),
@@ -661,6 +665,20 @@ function applyPokerCardValue(card: HTMLElement, value: number) {
 }
 
 function showToast(message: string, type: "info" | "error" = "info") {
+  const now = Date.now();
+  if (
+    type === "error" &&
+    message === state.lastErrorToastMessage &&
+    now - state.lastErrorToastAt < 3000
+  ) {
+    return;
+  }
+
+  if (type === "error") {
+    state.lastErrorToastMessage = message;
+    state.lastErrorToastAt = now;
+  }
+
   state.toast = message;
   state.toastType = type;
   updateToast();

@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { createCaptcha, verifyCaptcha } from "../auth/captcha.js";
 import { readJsonBody } from "../lib/http.js";
+import { mapApiError } from "../lib/dbError.js";
 import {
   createId,
   hashPassword,
@@ -88,7 +89,8 @@ auth.post("/register", async (c) => {
     });
   } catch (error) {
     console.error("Register failed:", error);
-    return c.json({ error: "회원가입 처리 중 오류가 발생했습니다." }, 500);
+    const mapped = mapApiError(error);
+    return c.json({ error: mapped.message }, mapped.status);
   }
 });
 
@@ -130,7 +132,8 @@ auth.post("/login", async (c) => {
     });
   } catch (error) {
     console.error("Login failed:", error);
-    return c.json({ error: "로그인 처리 중 오류가 발생했습니다." }, 500);
+    const mapped = mapApiError(error);
+    return c.json({ error: mapped.message }, mapped.status);
   }
 });
 

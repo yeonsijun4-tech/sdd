@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { hashPassword, isValidPassword, verifyPassword } from "../auth/crypto.js";
 import { readJsonBody } from "../lib/http.js";
+import { mapApiError } from "../lib/dbError.js";
 import {
   deleteUserIfZeroBalance,
   findUserById,
@@ -73,7 +74,8 @@ user.post("/password", async (c) => {
     return c.json({ message: "비밀번호가 변경되었습니다." });
   } catch (error) {
     console.error("Password change failed:", error);
-    return c.json({ error: "비밀번호 변경 중 오류가 발생했습니다." }, 500);
+    const mapped = mapApiError(error);
+    return c.json({ error: mapped.message }, mapped.status);
   }
 });
 

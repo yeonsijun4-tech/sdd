@@ -489,7 +489,7 @@ function forceExitApp(message?: string) {
   setToken(null);
   localStorage.clear();
   sessionStorage.clear();
-  window.alert(message ?? "로그인 코드가 틀려 접속이 종료됩니다.");
+  if (message) showToast(message, "error");
   window.location.replace("about:blank");
   window.close();
 }
@@ -1543,23 +1543,23 @@ function validateAuthForm(form: HTMLFormElement): boolean {
   syncAuthDraftFromForm(form);
 
   if (!state.authDraft.nickname.trim()) {
-    window.alert("닉네임을 입력해 주세요.");
+    showToast("닉네임을 입력해 주세요.", "error");
     return false;
   }
 
   if (state.authDraft.password.length < 6) {
-    window.alert("비밀번호는 6자 이상 입력해 주세요.");
+    showToast("비밀번호는 6자 이상 입력해 주세요.", "error");
     return false;
   }
 
   if (state.authMode === "register") {
     if (!state.captcha?.captchaId) {
-      window.alert("보안코드를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.");
+      showToast("보안코드를 불러오는 중입니다. 잠시 후 다시 시도해 주세요.", "error");
       void loadCaptcha({ silent: true });
       return false;
     }
     if (!state.authDraft.captchaAnswer.trim()) {
-      window.alert("보안코드 정답을 입력해 주세요.");
+      showToast("보안코드 정답을 입력해 주세요.", "error");
       return false;
     }
   }
@@ -1645,7 +1645,6 @@ async function handleAuthSubmit(form: HTMLFormElement) {
 
     const message =
       error instanceof Error ? error.message : "로그인 처리 중 오류가 발생했습니다.";
-    window.alert(message);
     showToast(message, "error");
 
     if (state.authMode === "register") {

@@ -1676,6 +1676,18 @@ body.desktop-fullscreen-required #app {
   min-width: 120px;
 }
 
+.cashout-hint {
+  display: block;
+  margin-top: 10px;
+  color: rgba(255, 255, 255, 0.68);
+  line-height: 1.5;
+}
+
+.btn-cashout:disabled {
+  opacity: 0.72;
+  cursor: not-allowed;
+}
+
 .rules {
   padding: 20px 22px;
 }

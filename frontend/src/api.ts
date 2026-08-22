@@ -90,7 +90,30 @@ export function setToken(token: string | null): void {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
-async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+const RETRYABLE_STATUSES = new Set([502, 503, 504]);
+const RETRYABLE_PATH_PREFIXES = ["/api/game", "/api/user"];
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+function shouldRetryRequest(path: string, status: number, attempt: number): boolean {
+  if (attempt >= 2) return false;
+  if (!RETRYABLE_STATUSES.has(status)) return false;
+  return RETRYABLE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix));
+}
+
+function defaultErrorMessage(status: number): string {
+  if (status === 503) {
+    return "서버가 준비 중입니다. 잠시 후 같은 버튼을 다시 눌러 주세요.";
+  }
+  if (status >= 500) {
+    return "일시적인 오류입니다. 잠시 후 같은 버튼을 다시 눌러 주세요.";
+  }
+  return "요청 처리 중 문제가 발생했습니다. 잠시 후 다시 시도해 주세요.";
+}
+
+async function request<T>(path: string, options: RequestInit = {}, attempt = 0): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");
@@ -100,7 +123,11 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   try {
     response = await fetch(path, { ...options, headers });
   } catch {
-    throw new Error("서버에 연결할 수 없습니다. 잠시 후 다시 시도해 주세요.");
+    if (attempt < 2 && RETRYABLE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+      await sleep(450 * (attempt + 1));
+      return request(path, options, attempt + 1);
+    }
+    throw new Error("서버에 연결할 수 없습니다. 잠시 후 같은 버튼을 다시 눌러 주세요.");
   }
 
   const text = await response.text();
@@ -110,17 +137,29 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     try {
       data = JSON.parse(text);
     } catch {
+      if (
+        shouldRetryRequest(path, response.status, attempt) ||
+        (attempt < 2 && !response.ok && RETRYABLE_PATH_PREFIXES.some((prefix) => path.startsWith(prefix)))
+      ) {
+        await sleep(450 * (attempt + 1));
+        return request(path, options, attempt + 1);
+      }
       throw new Error(
         response.ok
           ? "서버 응답을 처리할 수 없습니다."
-          : `서버 오류 (${response.status}). 잠시 후 다시 시도해 주세요.`
+          : defaultErrorMessage(response.status)
       );
     }
   }
 
   if (!response.ok) {
+    if (shouldRetryRequest(path, response.status, attempt)) {
+      await sleep(450 * (attempt + 1));
+      return request(path, options, attempt + 1);
+    }
+
     throw new ApiError(
-      data.error ?? "요청 처리 중 오류가 발생했습니다.",
+      data.error ?? defaultErrorMessage(response.status),
       response.status,
       data.accountDeleted === true,
       data.forceExit === true

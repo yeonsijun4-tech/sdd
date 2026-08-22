@@ -11,7 +11,7 @@ import {
   type PublicUser,
   type RankingEntry,
 } from "./api";
-import { isBgmEnabled, setBgmEnabled, setupBgmAutostart, tryPlayBgm } from "./bgm";
+import { isBgmEnabled, pauseBgm, setBgmEnabled, syncBgmForLoggedInUser } from "./bgm";
 import "./styles.css";
 
 interface AppState {
@@ -777,7 +777,7 @@ async function withAuthBusy<T>(task: () => Promise<T>): Promise<T | null> {
       handleAccountDeleted(error.message);
       return null;
     }
-    showToast(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
+    showToast(formatActionError(error), "error");
     return null;
   } finally {
     setAuthSubmitting(false);
@@ -815,6 +815,24 @@ function playResultEffect(type: "WIN" | "LOSE") {
   }, 1200);
 }
 
+function formatActionError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 503 || error.status >= 500) {
+      return `${error.message} 게임과 포인트는 그대로입니다.`;
+    }
+    return error.message;
+  }
+
+  if (error instanceof Error) {
+    if (error.message.includes("연결") || error.message.includes("다시")) {
+      return `${error.message} 게임과 포인트는 그대로입니다.`;
+    }
+    return error.message;
+  }
+
+  return "오류가 발생했습니다. 잠시 후 같은 버튼을 다시 눌러 주세요.";
+}
+
 async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
   setBusy(true);
   try {
@@ -828,7 +846,7 @@ async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
       handleAccountDeleted(error.message);
       return null;
     }
-    showToast(error instanceof Error ? error.message : "오류가 발생했습니다.", "error");
+    showToast(formatActionError(error), "error");
     return null;
   } finally {
     setBusy(false);
@@ -885,7 +903,6 @@ async function refreshRankings() {
 
 async function bootstrap() {
   bindGlobalEvents();
-  setupBgmAutostart();
   void loadCaptcha({ silent: true });
   startPresenceTracking();
   startFullscreenWatch();
@@ -917,6 +934,7 @@ async function bootstrap() {
     }
   }
 
+  syncBgmForLoggedInUser(Boolean(state.user));
   render();
 }
 
@@ -1360,7 +1378,11 @@ function renderGameBoard() {
   const bettingAmount = session?.sessionPoints ?? 0;
   const canPlay = Boolean(session?.isActive);
   const currentTurn = session?.currentStreak ?? 0;
-  const canCashout = canPlay && bettingAmount > 0 && currentTurn >= MIN_CASHOUT_TURNS;
+  const cashoutTurnsLeft = Math.max(0, MIN_CASHOUT_TURNS - currentTurn);
+  const canCashout = canPlay && bettingAmount > 0 && cashoutTurnsLeft === 0;
+  const cashoutHint = canCashout
+    ? "그만하기를 누르면 미확정 포인트 전체가 보유 포인트로 들어옵니다."
+    : `그만하기까지 ${cashoutTurnsLeft}턴 더 성공해야 합니다. 실패하면 미확정 포인트를 잃습니다.`;
   const upPercent = board?.probabilities.up ?? 0;
   const downPercent = board?.probabilities.down ?? 0;
   const winMultiplier = 2;
@@ -1400,8 +1422,8 @@ function renderGameBoard() {
           <strong id="pending-points" class="holo-text">${formatPoints(bettingAmount)}</strong>
         </div>
         <div class="status-chip status-streak">
-          <span>연승</span>
-          <strong>${session?.currentStreak ?? 0}</strong>
+          <span>성공 턴</span>
+          <strong>${currentTurn} / ${MIN_CASHOUT_TURNS}</strong>
         </div>
       </div>
 
@@ -1438,9 +1460,17 @@ function renderGameBoard() {
               <span class="bet-amount-label">현재 미확정 포인트</span>
               <strong id="bet-display">${formatPoints(bettingAmount)}</strong>
             </div>
-            <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
+            <button
+              class="btn btn-cashout"
+              data-action="cashout"
+              data-busy-toggle="true"
+              ${!canCashout ? "disabled" : ""}
+              aria-label="${canCashout ? "그만하기" : cashoutHint}"
+            >
+              ${canCashout ? "그만하기" : `그만하기 (${cashoutTurnsLeft}턴 남음)`}
+            </button>
           </div>
-          <small>2턴 이상 성공해야 그만하기가 열립니다. 열리면 미확정 포인트 전체가 보유 포인트로 들어옵니다. 실패하면 미확정 포인트를 잃습니다.</small>
+          <small class="cashout-hint">${cashoutHint}</small>
         `
             : `
           <div class="bet-input-header">
@@ -1528,14 +1558,9 @@ function renderApp() {
             </div>
             <span class="brand-sub">Virtual Point Game</span>
           </div>
-          <div class="topbar-actions">
-            <div class="online-count-badge">
-              <span>접속자</span>
-              <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
-            </div>
-            <button class="btn btn-ghost bgm-toggle-btn" type="button" data-action="toggle-bgm">
-              ${state.bgmEnabled ? "BGM 끄기" : "BGM 켜기"}
-            </button>
+          <div class="online-count-badge">
+            <span>접속자</span>
+            <strong id="online-count">${formatOnlineCount(state.onlineCount)}</strong>
           </div>
         </header>
         ${renderUpdateBanner()}
@@ -1917,6 +1942,7 @@ function bindGlobalEvents() {
         break;
       case "logout":
         setToken(null);
+        pauseBgm();
         state.user = null;
         state.activeSession = null;
         state.board = null;

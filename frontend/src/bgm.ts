@@ -12,10 +12,14 @@ export function isBgmEnabled(): boolean {
 export function setBgmEnabled(enabled: boolean): void {
   localStorage.setItem(BGM_ENABLED_KEY, enabled ? "1" : "0");
   if (!enabled) {
-    audio?.pause();
+    pauseBgm();
     return;
   }
   void tryPlayBgm();
+}
+
+export function pauseBgm(): void {
+  audio?.pause();
 }
 
 function ensureAudio(): HTMLAudioElement {
@@ -47,9 +51,19 @@ export function setupBgmAutostart(): void {
   autostartBound = true;
 
   const resume = () => {
+    if (!isBgmEnabled()) return;
     void tryPlayBgm();
   };
 
   document.addEventListener("pointerdown", resume, { passive: true });
   document.addEventListener("keydown", resume);
+}
+
+export function syncBgmForLoggedInUser(isLoggedIn: boolean): void {
+  if (!isLoggedIn) {
+    pauseBgm();
+    return;
+  }
+  setupBgmAutostart();
+  void tryPlayBgm();
 }

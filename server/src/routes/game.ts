@@ -180,6 +180,8 @@ game.post("/guess", async (c) => {
   });
 });
 
+const MIN_CASHOUT_TURNS = 2;
+
 game.post("/cashout", async (c) => {
   const userId = c.get("userId");
   const session = await getActiveGameSession(userId);
@@ -189,6 +191,10 @@ game.post("/cashout", async (c) => {
 
   if (session.session_points <= 0) {
     return c.json({ error: "확정할 미확정 포인트가 없습니다." }, 400);
+  }
+
+  if (session.current_streak < MIN_CASHOUT_TURNS) {
+    return c.json({ error: "그만하기는 2턴 이상 성공한 후에 가능합니다." }, 400);
   }
 
   const earned = session.session_points;

@@ -207,6 +207,7 @@ function startPresenceTracking() {
   });
 }
 
+const MIN_CASHOUT_TURNS = 2;
 const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
 const GAME_ICON = "/assets/1zuxm-icon.png";
 const LOGIN_ACCESS_CODE = "0828";
@@ -1035,7 +1036,8 @@ function renderGameBoard() {
   const currentNumber = board?.currentNumber ?? session?.currentNumber ?? "--";
   const bettingAmount = session?.sessionPoints ?? 0;
   const canPlay = Boolean(session?.isActive);
-  const canCashout = canPlay && bettingAmount > 0;
+  const currentTurn = session?.currentStreak ?? 0;
+  const canCashout = canPlay && bettingAmount > 0 && currentTurn >= MIN_CASHOUT_TURNS;
   const upPercent = board?.probabilities.up ?? 0;
   const downPercent = board?.probabilities.down ?? 0;
   const winMultiplier = 2;
@@ -1115,7 +1117,7 @@ function renderGameBoard() {
             </div>
             <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
           </div>
-          <small>그만하기를 누르면 미확정 포인트 전체가 보유 포인트로 들어옵니다. 실패하면 미확정 포인트를 잃습니다.</small>
+          <small>2턴 이상 성공해야 그만하기가 열립니다. 열리면 미확정 포인트 전체가 보유 포인트로 들어옵니다. 실패하면 미확정 포인트를 잃습니다.</small>
         `
             : `
           <div class="bet-input-header">

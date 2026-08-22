@@ -437,7 +437,9 @@ async function refreshRankings() {
     if (data.myRank && state.user) {
       state.user = data.myRank;
     }
-    render();
+    if (state.user) {
+      updateRankingPanelDom();
+    }
   } catch {
     // ranking failures should not block auth or gameplay
   }
@@ -703,6 +705,56 @@ function renderOddEvenPlaceholder() {
   `;
 }
 
+function renderRankingTableBody(): string {
+  if (state.rankings.length === 0) {
+    return `<tr><td colspan="5" class="empty-row">${
+      state.rankingUpdatedAt
+        ? "등록된 플레이어가 없습니다."
+        : "랭킹 데이터를 불러오는 중..."
+    }</td></tr>`;
+  }
+
+  return state.rankings
+    .map(
+      (row) => `
+                <tr class="${state.user?.nickname === row.nickname ? "is-me" : ""}">
+                  <td class="holo-text">#${row.rank}</td>
+                  <td>${row.nickname}</td>
+                  <td>${formatPoints(row.points)}</td>
+                  <td>${row.maxStreak}</td>
+                  <td>${formatPoints(row.maxSessionGain)}</td>
+                </tr>
+              `
+    )
+    .join("");
+}
+
+function updateRankingPanelDom() {
+  const tbody = document.querySelector(".ranking-panel tbody");
+  const updated = document.querySelector(".ranking-updated");
+  const myRankBox = document.querySelector(".my-rank-box");
+  if (!tbody || !updated || !myRankBox) return;
+
+  tbody.innerHTML = renderRankingTableBody();
+  updated.textContent = `업데이트: ${
+    state.rankingUpdatedAt
+      ? new Date(state.rankingUpdatedAt).toLocaleTimeString("ko-KR")
+      : "-"
+  }`;
+
+  const strongs = myRankBox.querySelectorAll("strong");
+  const spans = myRankBox.querySelectorAll("span");
+  if (strongs[0]) {
+    strongs[0].textContent = state.user?.rank ? `#${state.user.rank}` : "-";
+  }
+  if (spans[1]) {
+    spans[1].textContent = state.user?.nickname ?? "게스트";
+  }
+  if (strongs[1]) {
+    strongs[1].textContent = formatPoints(state.user?.points ?? 0);
+  }
+}
+
 function renderRankingPanel() {
   const myRankText = state.user?.rank ? `#${state.user.rank}` : "-";
 
@@ -730,27 +782,7 @@ function renderRankingPanel() {
             </tr>
           </thead>
           <tbody>
-            ${
-              state.rankings.length === 0
-                ? `<tr><td colspan="5" class="empty-row">${
-                    state.rankingUpdatedAt
-                      ? "등록된 플레이어가 없습니다."
-                      : "랭킹 데이터를 불러오는 중..."
-                  }</td></tr>`
-                : state.rankings
-                    .map(
-                      (row) => `
-                <tr class="${state.user?.nickname === row.nickname ? "is-me" : ""}">
-                  <td class="holo-text">#${row.rank}</td>
-                  <td>${row.nickname}</td>
-                  <td>${formatPoints(row.points)}</td>
-                  <td>${row.maxStreak}</td>
-                  <td>${formatPoints(row.maxSessionGain)}</td>
-                </tr>
-              `
-                    )
-                    .join("")
-            }
+            ${renderRankingTableBody()}
           </tbody>
         </table>
       </div>

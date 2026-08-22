@@ -1167,6 +1167,25 @@ body.desktop-fullscreen-required #app {
   margin-bottom: 4px;
 }
 
+.password-change-panel {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.password-change-title {
+  margin: 0 0 12px;
+  font-size: 1rem;
+}
+
+.password-change-form {
+  gap: 10px;
+}
+
+.password-change-form .btn {
+  margin-top: 4px;
+}
+
 .info-list {
   margin: 0;
   padding-left: 18px;

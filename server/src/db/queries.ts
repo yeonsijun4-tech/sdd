@@ -225,6 +225,10 @@ export async function incrementUserStats(
   await query(`UPDATE users SET ${sets.join(", ")} WHERE id = $${index}`, params);
 }
 
+export async function updateUserPassword(userId: string, passwordHash: string): Promise<void> {
+  await query("UPDATE users SET password_hash = $1 WHERE id = $2", [passwordHash, userId]);
+}
+
 export async function deleteUser(userId: string): Promise<void> {
   await query("DELETE FROM game_sessions WHERE user_id = $1", [userId]);
   await query("DELETE FROM users WHERE id = $1", [userId]);

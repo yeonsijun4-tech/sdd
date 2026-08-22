@@ -154,6 +154,12 @@ export const api = {
       "/api/user/me"
     );
   },
+  changePassword(currentPassword: string, newPassword: string) {
+    return request<{ message: string }>("/api/user/password", {
+      method: "POST",
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  },
   claimBonus() {
     return request<{ message: string; user: PublicUser }>("/api/user/bonus", {
       method: "POST",

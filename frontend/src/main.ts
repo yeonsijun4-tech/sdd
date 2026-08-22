@@ -1148,12 +1148,50 @@ function renderInfoModal() {
   const bodies = {
     profile: `
       <div class="info-grid">
-        <div><span>닉네임</span><strong>${renderNicknameWithDevBadge(state.user.nickname)}</strong></div>
-        <div><span>보유 포인트</span><strong>${formatPoints(state.user.points)}</strong></div>
-        <div><span>내 랭킹</span><strong>${state.user.rank ? `#${state.user.rank}` : "-"}</strong></div>
-        <div><span>최고 연승</span><strong>${state.user.maxStreak}</strong></div>
-        <div><span>최고 획득</span><strong>${formatPoints(state.user.maxSessionGain)}</strong></div>
-        <div><span>전적</span><strong>${state.user.wins}승 ${state.user.losses}패</strong></div>
+        <div><span>닉네임</span><strong>${renderNicknameWithDevBadge(state.user!.nickname)}</strong></div>
+        <div><span>보유 포인트</span><strong>${formatPoints(state.user!.points)}</strong></div>
+        <div><span>내 랭킹</span><strong>${state.user!.rank ? `#${state.user!.rank}` : "-"}</strong></div>
+        <div><span>최고 연승</span><strong>${state.user!.maxStreak}</strong></div>
+        <div><span>최고 획득</span><strong>${formatPoints(state.user!.maxSessionGain)}</strong></div>
+        <div><span>전적</span><strong>${state.user!.wins}승 ${state.user!.losses}패</strong></div>
+      </div>
+      <div class="password-change-panel">
+        <h3 class="password-change-title holo-text">비밀번호 변경</h3>
+        <form id="password-change-form" class="auth-form password-change-form" novalidate>
+          <label>
+            <span>현재 비밀번호</span>
+            <input
+              name="currentPassword"
+              type="password"
+              minlength="6"
+              maxlength="64"
+              autocomplete="current-password"
+            />
+          </label>
+          <label>
+            <span>새 비밀번호</span>
+            <input
+              name="newPassword"
+              type="password"
+              minlength="6"
+              maxlength="64"
+              autocomplete="new-password"
+            />
+          </label>
+          <label>
+            <span>새 비밀번호 확인</span>
+            <input
+              name="confirmPassword"
+              type="password"
+              minlength="6"
+              maxlength="64"
+              autocomplete="new-password"
+            />
+          </label>
+          <button class="btn btn-primary holo-btn" type="button" data-action="change-password">
+            비밀번호 변경
+          </button>
+        </form>
       </div>
     `,
     notice: `
@@ -1169,7 +1207,7 @@ function renderInfoModal() {
 
   return `
     <div class="modal-backdrop" data-action="close-modal">
-      <div class="modal card-surface holo-border info-modal info-modal-patch" role="dialog" aria-modal="true">
+      <div class="modal card-surface holo-border info-modal${state.activeModal === "patch" ? " info-modal-patch" : ""}" role="dialog" aria-modal="true">
         <div class="modal-header info-modal-header">
           <h2 class="holo-text">${titles[state.activeModal]}</h2>
           <button class="modal-close" type="button" data-action="close-modal" aria-label="닫기">×</button>
@@ -1511,6 +1549,36 @@ function render() {
   updatePlayBlockDom();
 }
 
+async function handlePasswordChange(form: HTMLFormElement) {
+  const formData = new FormData(form);
+  const currentPassword = String(formData.get("currentPassword") ?? "");
+  const newPassword = String(formData.get("newPassword") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
+
+  if (currentPassword.length < 6) {
+    showToast("현재 비밀번호를 입력해 주세요.", "error");
+    return;
+  }
+
+  if (newPassword.length < 6) {
+    showToast("새 비밀번호는 6자 이상 입력해 주세요.", "error");
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    showToast("새 비밀번호 확인이 일치하지 않습니다.", "error");
+    return;
+  }
+
+  try {
+    const result = await api.changePassword(currentPassword, newPassword);
+    showToast(result.message);
+    form.reset();
+  } catch (error) {
+    showToast(error instanceof Error ? error.message : "비밀번호 변경 중 오류가 발생했습니다.", "error");
+  }
+}
+
 async function switchAuthMode(mode: "login" | "register") {
   const form = document.querySelector<HTMLFormElement>("#auth-form");
   if (form) syncAuthDraftFromForm(form);
@@ -1694,6 +1762,10 @@ function bindGlobalEvents() {
     }
     if (target.id === "access-code-form") {
       handleAccessCodeSubmit(target);
+      return;
+    }
+    if (target.id === "password-change-form") {
+      void handlePasswordChange(target);
     }
   });
 
@@ -1779,6 +1851,11 @@ function bindGlobalEvents() {
       case "enter-fullscreen":
         void enterFullscreenMode();
         break;
+      case "change-password": {
+        const form = document.querySelector<HTMLFormElement>("#password-change-form");
+        if (form) void handlePasswordChange(form);
+        break;
+      }
       case "auth-submit": {
         const form = document.querySelector<HTMLFormElement>("#auth-form");
         if (form) void handleAuthSubmit(form);

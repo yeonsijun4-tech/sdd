@@ -28,6 +28,15 @@ body {
   overflow-x: hidden;
 }
 
+.btn,
+button,
+.choice-card,
+.bet-preset-btn,
+.nav-side-btn,
+.menu-link-row button {
+  touch-action: manipulation;
+}
+
 body::before,
 body::after {
   content: "";
@@ -96,8 +105,60 @@ input {
 
 #app {
   min-height: 100vh;
+  min-height: -webkit-fill-available;
   position: relative;
   z-index: 1;
+}
+
+.game-play-shell {
+  position: relative;
+  min-height: 0;
+}
+
+.game-play-shell.is-play-blocked .game-board,
+.game-play-shell.is-play-blocked .coming-soon-board {
+  pointer-events: none;
+  user-select: none;
+  filter: blur(2px) brightness(0.55);
+}
+
+.fullscreen-gate {
+  position: absolute;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  pointer-events: auto;
+}
+
+.fullscreen-gate-card {
+  width: min(420px, 100%);
+  padding: 28px 32px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.92);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.65);
+}
+
+.fullscreen-gate-label {
+  margin: 0 0 10px;
+  font-size: clamp(1.5rem, 4vw, 2.2rem);
+  line-height: 1.2;
+}
+
+.fullscreen-gate-sub {
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 0.92rem;
+}
+
+.mouse-trail-canvas {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 9999;
 }
 
 .page-shell {
@@ -2156,6 +2217,31 @@ tr.is-me {
 }
 
 @media (max-width: 960px) {
+  html,
+  body {
+    overflow-x: hidden;
+    overflow-y: auto;
+  }
+
+  .page-shell.game-page {
+    height: auto;
+    max-height: none;
+    min-height: 100dvh;
+    min-height: -webkit-fill-available;
+    overflow: visible;
+    padding-bottom: 24px;
+  }
+
+  .page-shell.game-page > .layout {
+    overflow: visible;
+    min-height: auto;
+  }
+
+  .page-shell.game-page .main-column {
+    overflow: visible;
+    max-height: none;
+  }
+
   .layout,
   .game-layout {
     grid-template-columns: 1fr;
@@ -2174,15 +2260,40 @@ tr.is-me {
   .game-layout .ranking-panel {
     grid-column: 1;
     position: static;
-    max-height: min(28vh, 220px);
-  }
-
-  .page-shell.game-page .main-column {
     max-height: none;
+    min-height: 320px;
   }
 
   .page-shell.game-page .ranking-panel {
-    max-height: min(28vh, 220px);
+    max-height: none;
+    min-height: 320px;
+  }
+
+  .choice-card {
+    min-height: 104px;
+  }
+
+  .choice-dock .choice-card {
+    min-height: 92px;
+  }
+
+  .bet-preset-btn {
+    min-height: 44px;
+    padding: 10px 12px;
+  }
+
+  .bet-amount-input {
+    font-size: 1rem;
+  }
+
+  .fullscreen-gate {
+    display: none;
+  }
+
+  .game-play-shell.is-play-blocked .game-board,
+  .game-play-shell.is-play-blocked .coming-soon-board {
+    pointer-events: auto;
+    filter: none;
   }
 
   .page-shell.game-page .game-board--setup .card-table {
@@ -2221,6 +2332,19 @@ tr.is-me {
 }
 
 @media (max-width: 640px) {
+  .page-shell.game-page .game-board--setup .card-table {
+    grid-template-columns: repeat(3, minmax(72px, 1fr));
+    gap: 8px;
+  }
+
+  .page-shell.game-page .game-board--setup .card-slot-label {
+    font-size: 0.68rem;
+  }
+
+  .page-shell.game-page .playing-card {
+    min-height: 108px;
+  }
+
   .v10-update-banner {
     flex-direction: column;
     align-items: stretch;

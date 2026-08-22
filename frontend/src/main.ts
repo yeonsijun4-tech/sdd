@@ -132,6 +132,165 @@ function detectDeviceLabel(): string {
   return `${device} · ${os} · ${browser}`;
 }
 
+function isMobileDevice(): boolean {
+  const mobileUa = /Android|iPhone|iPad|iPod|Mobile|webOS|BlackBerry/i.test(navigator.userAgent);
+  const narrowTouch =
+    window.matchMedia("(max-width: 960px)").matches &&
+    window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  return mobileUa || narrowTouch;
+}
+
+function isWindowFullscreen(): boolean {
+  if (document.fullscreenElement) return true;
+  const tolerance = 100;
+  return (
+    window.innerWidth >= window.screen.width - tolerance &&
+    window.innerHeight >= window.screen.height - tolerance
+  );
+}
+
+function isPlayBlocked(): boolean {
+  if (isMobileDevice()) return false;
+  return !isWindowFullscreen();
+}
+
+function ensurePlayAllowed(): boolean {
+  if (!isPlayBlocked()) return true;
+  showToast("F11을 눌러주세요.", "error");
+  return false;
+}
+
+function renderFullscreenGate(): string {
+  return `
+    <div class="fullscreen-gate" aria-live="polite">
+      <div class="fullscreen-gate-card card-surface holo-border">
+        <p class="fullscreen-gate-label holo-text">F11을 눌러주세요.</p>
+        <span class="fullscreen-gate-sub">전체 화면에서만 플레이할 수 있습니다.</span>
+      </div>
+    </div>
+  `;
+}
+
+function renderGamePlayShell(content: string): string {
+  const blocked = isPlayBlocked();
+  return `
+    <div class="game-play-shell${blocked ? " is-play-blocked" : ""}">
+      ${content}
+      ${blocked ? renderFullscreenGate() : ""}
+    </div>
+  `;
+}
+
+function updatePlayBlockDom() {
+  const blocked = isPlayBlocked();
+  document.body.classList.toggle("desktop-play-blocked", blocked && Boolean(state.user));
+
+  const shell = document.querySelector(".game-play-shell");
+  if (!shell) return;
+
+  shell.classList.toggle("is-play-blocked", blocked);
+
+  let gate = shell.querySelector(".fullscreen-gate");
+  if (blocked && !gate) {
+    shell.insertAdjacentHTML("beforeend", renderFullscreenGate());
+  } else if (!blocked && gate) {
+    gate.remove();
+  }
+
+  shell
+    .querySelectorAll<HTMLButtonElement>(
+      "[data-action='start-game'], [data-action='guess-up'], [data-action='guess-down'], [data-action='cashout'], [data-action='set-bet']"
+    )
+    .forEach((button) => {
+      button.disabled = blocked;
+    });
+
+  const betInput = shell.querySelector<HTMLInputElement>("#bet-amount-input");
+  if (betInput) {
+    betInput.disabled = blocked || betInput.dataset.locked === "1";
+  }
+}
+
+function startFullscreenWatch() {
+  const update = () => updatePlayBlockDom();
+  window.addEventListener("resize", update);
+  document.addEventListener("fullscreenchange", update);
+  update();
+}
+
+interface TrailPoint {
+  x: number;
+  y: number;
+  life: number;
+}
+
+let mouseTrailInitialized = false;
+let mouseTrailRaf = 0;
+const mouseTrailPoints: TrailPoint[] = [];
+
+function startMouseTrail() {
+  if (mouseTrailInitialized || isMobileDevice()) return;
+  mouseTrailInitialized = true;
+
+  const canvas = document.createElement("canvas");
+  canvas.className = "mouse-trail-canvas";
+  canvas.setAttribute("aria-hidden", "true");
+  document.body.appendChild(canvas);
+
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  const resize = () => {
+    const ratio = window.devicePixelRatio || 1;
+    canvas.width = Math.floor(window.innerWidth * ratio);
+    canvas.height = Math.floor(window.innerHeight * ratio);
+    canvas.style.width = `${window.innerWidth}px`;
+    canvas.style.height = `${window.innerHeight}px`;
+    ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  };
+
+  resize();
+  window.addEventListener("resize", resize);
+
+  window.addEventListener(
+    "mousemove",
+    (event) => {
+      mouseTrailPoints.push({ x: event.clientX, y: event.clientY, life: 1 });
+      if (mouseTrailPoints.length > 52) mouseTrailPoints.shift();
+    },
+    { passive: true }
+  );
+
+  const draw = () => {
+    ctx.clearRect(0, 0, window.innerWidth, window.innerHeight);
+
+    for (let i = 1; i < mouseTrailPoints.length; i++) {
+      const from = mouseTrailPoints[i - 1];
+      const to = mouseTrailPoints[i];
+      const alpha = Math.min(from.life, to.life) * 0.3;
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
+      ctx.lineWidth = 1.2;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.moveTo(from.x, from.y);
+      ctx.lineTo(to.x, to.y);
+      ctx.stroke();
+    }
+
+    for (const point of mouseTrailPoints) {
+      point.life -= 0.04;
+    }
+
+    while (mouseTrailPoints.length > 0 && mouseTrailPoints[0].life <= 0) {
+      mouseTrailPoints.shift();
+    }
+
+    mouseTrailRaf = window.requestAnimationFrame(draw);
+  };
+
+  draw();
+}
+
 function updateSessionClock() {
   const element = document.querySelector<HTMLElement>("#session-time");
   if (element) element.textContent = formatSessionTime();
@@ -660,6 +819,8 @@ async function bootstrap() {
   bindGlobalEvents();
   void loadCaptcha({ silent: true });
   startPresenceTracking();
+  startFullscreenWatch();
+  startMouseTrail();
 
   await refreshRankings();
   rankingTimer = window.setInterval(refreshRankings, 5000);
@@ -1089,6 +1250,8 @@ function renderGameBoard() {
   const balance = state.user?.points ?? 0;
   const presetAmounts = BET_PRESETS;
   const canStart = balance > 0;
+  const playBlocked = isPlayBlocked();
+  const playDisabled = playBlocked ? "disabled" : "";
 
   return `
     <section class="game-board card-surface holo-border ${canPlay ? "game-board--playing" : "game-board--setup"}">
@@ -1130,14 +1293,14 @@ function renderGameBoard() {
         canPlay
           ? `
         <div class="choice-row choice-dock choice-row-dual">
-          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
+          <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true" ${playDisabled}>
             <span class="choice-label">업 ▲</span>
             <div class="choice-face">
               <span>확률 ${upPercent}%</span>
               <strong>성공 시 x${winMultiplier}</strong>
             </div>
           </button>
-          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
+          <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true" ${playDisabled}>
             <span class="choice-label">다운 ▼</span>
             <div class="choice-face">
               <span>확률 ${downPercent}%</span>
@@ -1159,7 +1322,7 @@ function renderGameBoard() {
               <span class="bet-amount-label">현재 미확정 포인트</span>
               <strong id="bet-display">${formatPoints(bettingAmount)}</strong>
             </div>
-            <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout ? "disabled" : ""}>그만하기</button>
+            <button class="btn btn-cashout" data-action="cashout" data-busy-toggle="true" ${!canCashout || playBlocked ? "disabled" : ""}>그만하기</button>
           </div>
           <small>2턴 이상 성공해야 그만하기가 열립니다. 열리면 미확정 포인트 전체가 보유 포인트로 들어옵니다. 실패하면 미확정 포인트를 잃습니다.</small>
         `
@@ -1181,7 +1344,8 @@ function renderGameBoard() {
               min="1"
               placeholder="예: 1000"
               value="${state.betInput}"
-              ${canStart ? "" : "disabled"}
+              data-locked="${canStart ? "0" : "1"}"
+              ${canStart && !playBlocked ? "" : "disabled"}
             />
             <span class="bet-input-unit">P</span>
           </div>
@@ -1193,19 +1357,19 @@ function renderGameBoard() {
               ${presetAmounts
                 .map(
                   (amount) =>
-                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}">${amount.toLocaleString("ko-KR")}P</button>`
+                    `<button type="button" class="bet-preset-btn" data-action="set-bet" data-amount="${amount}" ${playDisabled}>${amount.toLocaleString("ko-KR")}P</button>`
                 )
                 .join("")}
               ${
                 balance > 0
-                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-bet-mode="set" data-amount="${balance}">전액</button>`
+                  ? `<button type="button" class="bet-preset-btn" data-action="set-bet" data-bet-mode="set" data-amount="${balance}" ${playDisabled}>전액</button>`
                   : ""
               }
             </div>
           `
               : ""
           }
-          <button class="btn btn-primary holo-btn bet-start-btn" data-action="start-game" data-busy-toggle="true" ${canStart ? "" : "disabled"}>
+          <button class="btn btn-primary holo-btn bet-start-btn" data-action="start-game" data-busy-toggle="true" ${canStart && !playBlocked ? "" : "disabled"}>
             포인트 사용하고 게임 시작
           </button>
           ${
@@ -1283,7 +1447,9 @@ function renderApp() {
       <main class="layout game-layout">
         <div class="layout-spacer" aria-hidden="true"></div>
         <section class="main-column game-center-column">
-          ${state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()}
+          ${renderGamePlayShell(
+            state.activeGame === "updown" ? renderGameBoard() : renderOddEvenPlaceholder()
+          )}
         </section>
         ${renderRankingPanel()}
       </main>
@@ -1294,6 +1460,7 @@ function renderApp() {
   updateToast();
   if (state.user) {
     startSessionClock();
+    updatePlayBlockDom();
   }
 }
 
@@ -1593,6 +1760,7 @@ function bindGlobalEvents() {
         render();
         break;
       case "start-game": {
+        if (!ensurePlayAllowed()) break;
         const betAmount = getBetAmountFromInput();
         if (!betAmount || betAmount <= 0) {
           showToast("사용할 포인트를 입력해 주세요. 게임 시작 전에 포인트를 꼭 입력해야 합니다.", "error");
@@ -1615,6 +1783,7 @@ function bindGlobalEvents() {
         break;
       }
       case "set-bet": {
+        if (!ensurePlayAllowed()) break;
         const amount = Math.floor(Number(button.dataset.amount));
         if (!Number.isFinite(amount) || amount <= 0) break;
         const balance = state.user?.points ?? 0;
@@ -1627,12 +1796,15 @@ function bindGlobalEvents() {
         break;
       }
       case "guess-up":
+        if (!ensurePlayAllowed()) break;
         void handleGuess("UP");
         break;
       case "guess-down":
+        if (!ensurePlayAllowed()) break;
         void handleGuess("DOWN");
         break;
       case "cashout":
+        if (!ensurePlayAllowed()) break;
         void withBusy(async () => api.cashout()).then(async (result) => {
           if (!result) return;
           state.user = result.user;

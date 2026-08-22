@@ -118,6 +118,16 @@ async function loadSessionInfo() {
 
 const BET_PRESETS = [1000, 5000, 10000, 100000, 1000000, 10000000, 100000000];
 const GAME_ICON = "/assets/1zuxm-icon.png";
+const LOGIN_ACCESS_CODE = "0828";
+
+function forceExitApp(message?: string) {
+  setToken(null);
+  localStorage.clear();
+  sessionStorage.clear();
+  window.alert(message ?? "로그인 코드가 틀려 접속이 종료됩니다.");
+  window.location.replace("about:blank");
+  window.close();
+}
 
 function handleAccountDeleted(message?: string) {
   setToken(null);
@@ -386,6 +396,10 @@ async function withBusy<T>(task: () => Promise<T>): Promise<T | null> {
   try {
     return await task();
   } catch (error) {
+    if (error instanceof ApiError && error.forceExit) {
+      forceExitApp(error.message);
+      return null;
+    }
     if (error instanceof ApiError && error.accountDeleted) {
       handleAccountDeleted(error.message);
       return null;
@@ -561,6 +575,17 @@ function renderAuthModal() {
           <label>
             <span>비밀번호</span>
             <input name="password" type="password" minlength="6" maxlength="64" autocomplete="current-password" required />
+          </label>
+          <label>
+            <span>로그인 코드</span>
+            <input
+              name="accessCode"
+              inputmode="numeric"
+              autocomplete="off"
+              maxlength="16"
+              placeholder="로그인 코드 입력"
+              required
+            />
           </label>
           ${captchaBlock}
           <label class="remember-row">
@@ -1025,16 +1050,22 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   const formData = new FormData(form);
   const nickname = String(formData.get("nickname") ?? "");
   const password = String(formData.get("password") ?? "");
+  const accessCode = String(formData.get("accessCode") ?? "").trim();
   const rememberMe = formData.get("rememberMe") === "on";
   state.rememberLogin = rememberMe;
   setRememberLogin(rememberMe);
+
+  if (accessCode !== LOGIN_ACCESS_CODE) {
+    forceExitApp("로그인 코드가 틀렸습니다.");
+    return;
+  }
 
   if (state.authMode === "register") {
     const captchaId = String(formData.get("captchaId") ?? "");
     const captchaAnswer = String(formData.get("captchaAnswer") ?? "");
 
     const result = await withBusy(async () =>
-      api.register(nickname, password, captchaId, captchaAnswer)
+      api.register(nickname, password, captchaId, captchaAnswer, accessCode)
     );
 
     if (!result) {
@@ -1057,7 +1088,7 @@ async function handleAuthSubmit(form: HTMLFormElement) {
   }
 
   const result = await withBusy(async () =>
-    api.login(nickname, password, rememberMe)
+    api.login(nickname, password, rememberMe, accessCode)
   );
   if (!result) return;
 

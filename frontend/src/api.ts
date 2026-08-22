@@ -58,11 +58,18 @@ const REMEMBER_KEY = "1zuxm_remember";
 export class ApiError extends Error {
   status: number;
   accountDeleted: boolean;
+  forceExit: boolean;
 
-  constructor(message: string, status: number, accountDeleted = false) {
+  constructor(
+    message: string,
+    status: number,
+    accountDeleted = false,
+    forceExit = false
+  ) {
     super(message);
     this.status = status;
     this.accountDeleted = accountDeleted;
+    this.forceExit = forceExit;
   }
 }
 
@@ -97,7 +104,7 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   }
 
   const text = await response.text();
-  let data: { error?: string; accountDeleted?: boolean } = {};
+  let data: { error?: string; accountDeleted?: boolean; forceExit?: boolean } = {};
 
   if (text) {
     try {
@@ -115,7 +122,8 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
     throw new ApiError(
       data.error ?? "요청 처리 중 오류가 발생했습니다.",
       response.status,
-      data.accountDeleted === true
+      data.accountDeleted === true,
+      data.forceExit === true
     );
   }
 
@@ -130,19 +138,20 @@ export const api = {
     nickname: string,
     password: string,
     captchaId: string,
-    captchaAnswer: string
+    captchaAnswer: string,
+    accessCode: string
   ) {
     return request<{ token: string; user: PublicUser }>("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ nickname, password, captchaId, captchaAnswer }),
+      body: JSON.stringify({ nickname, password, captchaId, captchaAnswer, accessCode }),
     });
   },
-  login(nickname: string, password: string, rememberMe = true) {
+  login(nickname: string, password: string, rememberMe: boolean, accessCode: string) {
     return request<{ token: string; user: PublicUser; rememberMe?: boolean }>(
       "/api/auth/login",
       {
         method: "POST",
-        body: JSON.stringify({ nickname, password, rememberMe }),
+        body: JSON.stringify({ nickname, password, rememberMe, accessCode }),
       }
     );
   },

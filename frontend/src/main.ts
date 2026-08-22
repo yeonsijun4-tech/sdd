@@ -267,18 +267,27 @@ function startMouseTrail() {
     for (let i = 1; i < mouseTrailPoints.length; i++) {
       const from = mouseTrailPoints[i - 1];
       const to = mouseTrailPoints[i];
-      const alpha = Math.min(from.life, to.life) * 0.3;
+      const alpha = Math.min(from.life, to.life) * 0.52;
       ctx.strokeStyle = `rgba(255, 255, 255, ${alpha})`;
-      ctx.lineWidth = 1.2;
+      ctx.lineWidth = 2.4;
       ctx.lineCap = "round";
+      ctx.lineJoin = "round";
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
       ctx.stroke();
     }
 
+    const head = mouseTrailPoints[mouseTrailPoints.length - 1];
+    if (head) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${head.life * 0.65})`;
+      ctx.beginPath();
+      ctx.arc(head.x, head.y, 2.2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
     for (const point of mouseTrailPoints) {
-      point.life -= 0.04;
+      point.life -= 0.035;
     }
 
     while (mouseTrailPoints.length > 0 && mouseTrailPoints[0].life <= 0) {

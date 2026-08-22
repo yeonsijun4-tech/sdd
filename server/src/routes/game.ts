@@ -6,6 +6,7 @@ import {
   applyWinMultiplier,
   evaluateGuess,
   randomNumber,
+  randomNumberExcept,
 } from "../game/logic.js";
 import {
   createGameSession,
@@ -117,7 +118,7 @@ game.post("/guess", async (c) => {
     return c.json({ error: "선택할 수 없는 방향입니다." }, 400);
   }
 
-  const nextNumber = randomNumber();
+  const nextNumber = randomNumberExcept(session.current_number);
   const result = evaluateGuess(
     session.current_number,
     nextNumber,
@@ -160,15 +161,12 @@ game.post("/guess", async (c) => {
   const rank = await getUserRank(userId);
 
   return c.json({
-    result: result === "TIE" ? "TIE" : "LOSE",
+    result: "LOSE",
     previousNumber: session.current_number,
     nextNumber,
     choice,
     lostPoints,
-    message:
-      result === "TIE"
-        ? "동일 숫자가 나와 UP/DOWN 모두 실패 처리되었습니다."
-        : "예측에 실패했습니다. 이번 게임의 미확정 포인트가 초기화됩니다.",
+    message: "예측에 실패했습니다. 이번 게임의 미확정 포인트가 초기화됩니다.",
     activeSession: null,
     user: dbUser ? publicUser(dbUser, rank) : null,
   });

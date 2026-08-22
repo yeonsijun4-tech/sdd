@@ -24,7 +24,7 @@ interface AppState {
   captcha: CaptchaChallenge | null;
   showCaptchaHelp: boolean;
   lastResult: {
-    type: "WIN" | "LOSE" | "TIE";
+    type: "WIN" | "LOSE";
     previousNumber: number;
     nextNumber: number;
     message?: string;
@@ -353,7 +353,7 @@ function updateBusyOverlay(isBusy: boolean) {
   document.body.appendChild(overlay);
 }
 
-function playResultEffect(type: "WIN" | "LOSE" | "TIE") {
+function playResultEffect(type: "WIN" | "LOSE") {
   const flash = document.createElement("div");
   flash.className = `result-flash result-flash-${type.toLowerCase()}`;
   document.body.appendChild(flash);
@@ -748,7 +748,6 @@ function renderGameBoard() {
   const canCashout = canPlay && bettingAmount > 0;
   const upPercent = board?.probabilities.up ?? 0;
   const downPercent = board?.probabilities.down ?? 0;
-  const tiePercent = board?.probabilities.tie ?? 0;
   const winMultiplier = 2;
   const nextPreview = canPlay ? "?" : "--";
   const balance = state.user?.points ?? 0;
@@ -794,7 +793,7 @@ function renderGameBoard() {
       ${
         canPlay
           ? `
-        <div class="choice-row choice-dock">
+        <div class="choice-row choice-dock choice-row-dual">
           <button class="choice-card choice-up" data-action="guess-up" data-busy-toggle="true">
             <span class="choice-label">업 ▲</span>
             <div class="choice-face">
@@ -802,13 +801,6 @@ function renderGameBoard() {
               <strong>성공 시 x${winMultiplier}</strong>
             </div>
           </button>
-          <div class="choice-card choice-tie choice-static">
-            <span class="choice-label">동일 =</span>
-            <div class="choice-face">
-              <span>확률 ${tiePercent}%</span>
-              <strong>실패 처리</strong>
-            </div>
-          </div>
           <button class="choice-card choice-down" data-action="guess-down" data-busy-toggle="true">
             <span class="choice-label">다운 ▼</span>
             <div class="choice-face">
@@ -894,9 +886,9 @@ function renderGameBoard() {
         state.lastResult
           ? `
         <div class="result-banner result-banner-${state.lastResult.type.toLowerCase()}">
-          <span class="result-banner-icon">${state.lastResult.type === "WIN" ? "✦" : state.lastResult.type === "TIE" ? "=" : "✕"}</span>
+          <span class="result-banner-icon">${state.lastResult.type === "WIN" ? "✦" : "✕"}</span>
           <span>${state.lastResult.previousNumber} → ${state.lastResult.nextNumber}</span>
-          <strong class="result-banner-title">${state.lastResult.type === "WIN" ? "성공!" : state.lastResult.type === "TIE" ? "동일 숫자" : "실패"}</strong>
+          <strong class="result-banner-title">${state.lastResult.type === "WIN" ? "성공!" : "실패"}</strong>
           ${state.lastResult.message ? `<p>${state.lastResult.message}</p>` : ""}
         </div>
       `

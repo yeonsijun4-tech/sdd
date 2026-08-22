@@ -57,6 +57,25 @@ export function resolveSchemaPath(): string {
   throw new Error("schema.sql file not found");
 }
 
+export function resolveSqliteSchemaPath(): string {
+  if (process.env.SQLITE_SCHEMA_PATH) {
+    return path.resolve(process.env.SQLITE_SCHEMA_PATH);
+  }
+
+  const candidates = getServerRoots().flatMap((root) => [
+    path.join(root, "schema.sqlite.sql"),
+    path.join(root, "server", "schema.sqlite.sql"),
+    path.join(root, "dist", "schema.sqlite.sql"),
+    path.join(root, "server", "dist", "schema.sqlite.sql"),
+  ]);
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) return candidate;
+  }
+
+  throw new Error("schema.sqlite.sql file not found");
+}
+
 export function resolveDatabasePath(): string {
   if (process.env.DATABASE_PATH) {
     return path.resolve(process.env.DATABASE_PATH);

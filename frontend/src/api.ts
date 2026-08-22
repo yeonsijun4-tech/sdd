@@ -27,14 +27,12 @@ export interface BoardState {
   probabilities: {
     up: number;
     down: number;
-    tie: number;
   };
   multipliers: {
     up: number;
     down: number;
   };
   rules: {
-    tieRule: string;
     probabilityRule: string;
     multiplierRule: string;
     rewardRule: string;
@@ -174,7 +172,7 @@ export const api = {
   },
   guess(choice: "UP" | "DOWN") {
     return request<{
-      result: "WIN" | "LOSE" | "TIE";
+      result: "WIN" | "LOSE";
       previousNumber: number;
       nextNumber: number;
       choice: string;

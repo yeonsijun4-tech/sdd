@@ -1,16 +1,8 @@
 import { Hono } from "hono";
 import { createId } from "../auth/crypto.js";
-import {
-  buildProbabilityPayload,
-  calculateProbabilities,
-  applyWinMultiplier,
-  evaluateGuess,
-  randomNumber,
-  randomNumberExcept,
-} from "../game/logic.js";
+import { createInitialState, parseBlastState, placePiece } from "../game/blockBlast.js";
 import {
   createGameSession,
-  deleteUserIfZeroBalance,
   findUserById,
   getActiveGameSession,
   getUserRank,
@@ -19,203 +11,163 @@ import {
   serializeActiveSession,
   updateGameSession,
 } from "../db/queries.js";
-import type { AppVariables, GuessChoice } from "../types.js";
+import type { AppVariables } from "../types.js";
 
 const game = new Hono<{ Variables: AppVariables }>();
+
+function readState(raw: string | null): ReturnType<typeof parseBlastState> {
+  if (!raw) return null;
+  try {
+    return parseBlastState(JSON.parse(raw));
+  } catch {
+    return null;
+  }
+}
+
+function payload(session: Awaited<ReturnType<typeof getActiveGameSession>>) {
+  return serializeActiveSession(session);
+}
+
+async function persistState(
+  sessionId: string,
+  userId: string,
+  next: ReturnType<typeof createInitialState>,
+  finish: boolean
+) {
+  await updateGameSession(sessionId, {
+    session_points: String(next.score),
+    current_streak: next.combo,
+    is_active: finish ? 0 : 1,
+    board_json: JSON.stringify(next),
+  });
+
+  if (finish) {
+    await incrementUserStats(userId, {
+      highScore: next.score,
+      maxStreak: next.combo,
+      gamesPlayed: 1,
+    });
+  }
+
+  const session = await getActiveGameSession(userId);
+  const user = await findUserById(userId);
+  const rank = user ? await getUserRank(userId) : null;
+
+  return {
+    activeSession: finish ? null : payload(session),
+    blast: next,
+    user: user ? publicUser(user, rank) : null,
+    gameOver: finish,
+  };
+}
 
 game.get("/state", async (c) => {
   const userId = c.get("userId");
   const session = await getActiveGameSession(userId);
-
   if (!session) {
-    return c.json({ activeSession: null });
+    return c.json({ activeSession: null, blast: null });
   }
 
+  const blast = readState(session.board_json);
   return c.json({
-    activeSession: serializeActiveSession(session),
-    board: buildProbabilityPayload(session.current_number),
+    activeSession: payload(session),
+    blast,
   });
 });
 
 game.post("/start", async (c) => {
   const userId = c.get("userId");
-  const body = (await c.req.json<{ betAmount?: number | string }>().catch(() => ({
-    betAmount: undefined,
-  }))) as { betAmount?: number | string };
-  const betAmount = Math.floor(Number(body.betAmount));
-  const dbUser = await findUserById(userId);
-  if (!dbUser) return c.json({ error: "사용자를 찾을 수 없습니다." }, 404);
-
   const existing = await getActiveGameSession(userId);
   if (existing) {
+    const blast = readState(existing.board_json);
     return c.json({
-      activeSession: serializeActiveSession(existing),
-      board: buildProbabilityPayload(existing.current_number),
-      message: "이미 진행 중인 게임이 있습니다.",
+      activeSession: payload(existing),
+      blast,
+      message: "진행 중인 게임이 있습니다.",
     });
   }
 
-  if (dbUser.points <= 0) {
-    const accountDeleted = await deleteUserIfZeroBalance(userId);
-    return c.json(
-      {
-        error: accountDeleted
-          ? "보유 포인트가 0P가 되어 계정이 삭제되었습니다."
-          : "보유 포인트가 없습니다.",
-        accountDeleted,
-      },
-      accountDeleted ? 410 : 400
-    );
-  }
-
-  if (!Number.isFinite(betAmount) || betAmount <= 0) {
-    return c.json({ error: "사용할 포인트를 입력해 주세요. 1P 이상 입력해야 게임을 시작할 수 있습니다." }, 400);
-  }
-
-  if (betAmount > dbUser.points) {
-    return c.json(
-      { error: `사용 포인트는 보유 포인트(${dbUser.points.toLocaleString("ko-KR")}P) 이하여야 합니다.` },
-      400
-    );
-  }
-
-  const sessionId = createId();
-  const currentNumber = randomNumber();
-  await incrementUserStats(userId, { pointsDelta: -betAmount });
+  const blast = createInitialState();
   await createGameSession({
-    id: sessionId,
+    id: createId(),
     user_id: userId,
-    current_number: currentNumber,
-    session_points: betAmount,
+    current_number: 0,
+    session_points: "0",
+    board_json: JSON.stringify(blast),
   });
 
   const session = await getActiveGameSession(userId);
-  const updatedUser = await findUserById(userId);
-  const rank = await getUserRank(userId);
+  const user = await findUserById(userId);
+  const rank = user ? await getUserRank(userId) : null;
 
   return c.json({
-    activeSession: serializeActiveSession(session),
-    board: buildProbabilityPayload(currentNumber),
-    user: updatedUser ? publicUser(updatedUser, rank) : null,
+    activeSession: payload(session),
+    blast,
+    user: user ? publicUser(user, rank) : null,
   });
 });
 
-game.post("/guess", async (c) => {
+game.post("/place", async (c) => {
   const userId = c.get("userId");
-  const body = await c.req.json<{ choice?: string }>();
-  const choice = body.choice?.toUpperCase();
-
-  if (choice !== "UP" && choice !== "DOWN") {
-    return c.json({ error: "UP 또는 DOWN을 선택해야 합니다." }, 400);
-  }
+  const body = (await c.req.json<{ pieceIndex?: number; row?: number; col?: number }>().catch(() => ({
+    pieceIndex: undefined,
+    row: undefined,
+    col: undefined,
+  }))) as { pieceIndex?: number; row?: number; col?: number };
+  const pieceIndex = Number(body.pieceIndex);
+  const row = Number(body.row);
+  const col = Number(body.col);
 
   const session = await getActiveGameSession(userId);
-  if (!session) {
-    return c.json({ error: "진행 중인 게임이 없습니다. 새 게임을 시작하세요." }, 400);
-  }
-
-  const probabilities = calculateProbabilities(session.current_number);
-  const selectedMultiplier =
-    choice === "UP" ? probabilities.upMultiplier : probabilities.downMultiplier;
-
-  if (selectedMultiplier <= 0) {
-    return c.json({ error: "선택할 수 없는 방향입니다." }, 400);
-  }
-
-  const nextNumber = randomNumberExcept(session.current_number);
-  const result = evaluateGuess(
-    session.current_number,
-    nextNumber,
-    choice as GuessChoice
-  );
-
-  if (result === "WIN") {
-    const { gain, total: newSessionPoints } = applyWinMultiplier(session.session_points);
-    const newStreak = session.current_streak + 1;
-
-    await updateGameSession(session.id, {
-      current_number: nextNumber,
-      session_points: newSessionPoints,
-      current_streak: newStreak,
-    });
-
-    const updated = await getActiveGameSession(userId);
-
-    return c.json({
-      result: "WIN",
-      previousNumber: session.current_number,
-      nextNumber,
-      choice,
-      gain,
-      activeSession: serializeActiveSession(updated),
-      board: buildProbabilityPayload(nextNumber),
-    });
-  }
-
-  const lostPoints = session.session_points;
-  await updateGameSession(session.id, { is_active: 0 });
-  await incrementUserStats(userId, {
-    gamesPlayed: 1,
-    losses: 1,
-    maxStreak: session.current_streak,
-    maxSessionGain: lostPoints,
-  });
-
-  const dbUser = await findUserById(userId);
-  const accountDeleted = await deleteUserIfZeroBalance(userId);
-  const rank = accountDeleted ? null : dbUser ? await getUserRank(userId) : null;
-
-  return c.json({
-    result: "LOSE",
-    previousNumber: session.current_number,
-    nextNumber,
-    choice,
-    lostPoints,
-    message: accountDeleted
-      ? "예측에 실패했습니다. 보유 포인트가 0P가 되어 계정이 삭제되었습니다."
-      : "예측에 실패했습니다. 이번 게임의 미확정 포인트가 초기화됩니다.",
-    activeSession: null,
-    accountDeleted,
-    user: dbUser && !accountDeleted ? publicUser(dbUser, rank) : null,
-  });
-});
-
-const MIN_CASHOUT_TURNS = 2;
-
-game.post("/cashout", async (c) => {
-  const userId = c.get("userId");
-  const session = await getActiveGameSession(userId);
-  if (!session) {
+  if (!session?.board_json) {
     return c.json({ error: "진행 중인 게임이 없습니다." }, 400);
   }
 
-  if (session.session_points <= 0) {
-    return c.json({ error: "확정할 미확정 포인트가 없습니다." }, 400);
+  const current = readState(session.board_json);
+  if (!current) {
+    return c.json({ error: "게임 상태를 불러오지 못했습니다." }, 400);
   }
 
-  if (session.current_streak < MIN_CASHOUT_TURNS) {
-    return c.json({ error: "그만하기는 2턴 이상 성공한 후에 가능합니다." }, 400);
+  const next = placePiece(current, pieceIndex, row, col);
+  if (!next) {
+    return c.json({ error: "그 위치에는 놓을 수 없습니다." }, 400);
   }
 
-  const earned = session.session_points;
+  return c.json(await persistState(session.id, userId, next, next.gameOver));
+});
 
-  await updateGameSession(session.id, { is_active: 0 });
-  await incrementUserStats(userId, {
-    pointsDelta: earned,
-    gamesPlayed: 1,
-    wins: 1,
-    maxStreak: session.current_streak,
-    maxSessionGain: earned,
+game.post("/restart", async (c) => {
+  const userId = c.get("userId");
+  const existing = await getActiveGameSession(userId);
+  if (existing?.board_json) {
+    const current = readState(existing.board_json);
+    if (current && !current.gameOver) {
+      await incrementUserStats(userId, {
+        highScore: current.score,
+        maxStreak: current.combo,
+        gamesPlayed: 1,
+      });
+      await updateGameSession(existing.id, { is_active: 0 });
+    }
+  }
+
+  const blast = createInitialState();
+  await createGameSession({
+    id: createId(),
+    user_id: userId,
+    current_number: 0,
+    session_points: "0",
+    board_json: JSON.stringify(blast),
   });
 
-  const dbUser = await findUserById(userId);
-  const rank = await getUserRank(userId);
+  const session = await getActiveGameSession(userId);
+  const user = await findUserById(userId);
+  const rank = user ? await getUserRank(userId) : null;
 
   return c.json({
-    message: `${earned.toLocaleString("ko-KR")}P가 보유 포인트에 추가되었습니다.`,
-    earned,
-    user: dbUser ? publicUser(dbUser, rank) : null,
-    activeSession: null,
+    activeSession: payload(session),
+    blast,
+    user: user ? publicUser(user, rank) : null,
   });
 });
 

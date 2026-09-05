@@ -21,7 +21,8 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   session_points INTEGER NOT NULL DEFAULT 0,
   current_streak INTEGER NOT NULL DEFAULT 0,
   is_active BOOLEAN NOT NULL DEFAULT TRUE,
-  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  board_json TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_users_points ON users(points DESC);

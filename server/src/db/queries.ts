@@ -8,14 +8,19 @@ function toIsoString(value: unknown): string {
   return String(value);
 }
 
+function mapPointValue(value: unknown): string {
+  if (value === null || value === undefined) return "0";
+  return BigInt(String(value).split(".")[0] || "0").toString();
+}
+
 function mapUserRow(row: QueryResultRow): UserRow {
   return {
     id: String(row.id),
     nickname: String(row.nickname),
     password_hash: String(row.password_hash),
-    points: Number(row.points),
+    points: mapPointValue(row.points),
     max_streak: Number(row.max_streak),
-    max_session_gain: Number(row.max_session_gain),
+    max_session_gain: mapPointValue(row.max_session_gain),
     games_played: Number(row.games_played),
     wins: Number(row.wins),
     losses: Number(row.losses),
@@ -29,10 +34,11 @@ function mapGameSessionRow(row: QueryResultRow): GameSessionRow {
     id: String(row.id),
     user_id: String(row.user_id),
     current_number: Number(row.current_number),
-    session_points: Number(row.session_points),
+    session_points: mapPointValue(row.session_points),
     current_streak: Number(row.current_streak),
     is_active: row.is_active ? 1 : 0,
     started_at: toIsoString(row.started_at),
+    board_json: row.board_json == null ? null : String(row.board_json),
   };
 }
 
@@ -74,17 +80,19 @@ export async function getActiveGameSession(userId: string): Promise<GameSessionR
 
 export async function createGameSession(
   session: Pick<GameSessionRow, "id" | "user_id" | "current_number"> & {
-    session_points?: number;
+    session_points?: string;
+    board_json?: string;
   }
 ): Promise<void> {
   await query(
-    `INSERT INTO game_sessions (id, user_id, current_number, session_points, current_streak, is_active)
-     VALUES ($1, $2, $3, $4, 0, TRUE)`,
+    `INSERT INTO game_sessions (id, user_id, current_number, session_points, current_streak, is_active, board_json)
+     VALUES ($1, $2, $3, $4, 0, TRUE, $5)`,
     [
       session.id,
       session.user_id,
       session.current_number,
-      session.session_points ?? 0,
+      session.session_points ?? "0",
+      session.board_json ?? null,
     ]
   );
 }
@@ -92,7 +100,7 @@ export async function createGameSession(
 export async function updateGameSession(
   sessionId: string,
   values: Partial<
-    Pick<GameSessionRow, "current_number" | "session_points" | "current_streak" | "is_active">
+    Pick<GameSessionRow, "current_number" | "session_points" | "current_streak" | "is_active" | "board_json">
   >
 ): Promise<void> {
   const fields: string[] = [];
@@ -114,6 +122,10 @@ export async function updateGameSession(
   if (values.is_active !== undefined) {
     fields.push(`is_active = $${index++}`);
     params.push(values.is_active === 1);
+  }
+  if (values.board_json !== undefined) {
+    fields.push(`board_json = $${index++}`);
+    params.push(values.board_json);
   }
 
   if (fields.length === 0) return;
@@ -140,9 +152,9 @@ export async function getUserRank(userId: string): Promise<number | null> {
 export interface RankingRow {
   rank: number;
   nickname: string;
-  points: number;
+  points: string;
   max_streak: number;
-  max_session_gain: number;
+  max_session_gain: string;
 }
 
 export async function getRankings(limit = 20): Promise<RankingRow[]> {
@@ -168,18 +180,19 @@ export async function getRankings(limit = 20): Promise<RankingRow[]> {
   return result.rows.map((row) => ({
     rank: Number(row.rank),
     nickname: row.nickname,
-    points: Number(row.points),
+    points: mapPointValue(row.points),
     max_streak: Number(row.max_streak),
-    max_session_gain: Number(row.max_session_gain),
+    max_session_gain: mapPointValue(row.max_session_gain),
   }));
 }
 
 export async function incrementUserStats(
   userId: string,
   updates: {
-    pointsDelta?: number;
+    pointsDelta?: string;
+    highScore?: number;
     maxStreak?: number;
-    maxSessionGain?: number;
+    maxSessionGain?: string;
     gamesPlayed?: number;
     wins?: number;
     losses?: number;
@@ -193,6 +206,10 @@ export async function incrementUserStats(
   if (updates.pointsDelta !== undefined) {
     sets.push(`points = GREATEST(0, points + $${index++})`);
     params.push(updates.pointsDelta);
+  }
+  if (updates.highScore !== undefined) {
+    sets.push(`points = GREATEST(points, $${index++})`);
+    params.push(updates.highScore);
   }
   if (updates.maxStreak !== undefined) {
     sets.push(`max_streak = GREATEST(max_streak, $${index++})`);
@@ -234,15 +251,9 @@ export async function deleteUser(userId: string): Promise<void> {
   await query("DELETE FROM users WHERE id = $1", [userId]);
 }
 
-export async function deleteUserIfZeroBalance(userId: string): Promise<boolean> {
-  const user = await findUserById(userId);
-  if (!user || user.points > 0) return false;
-
-  const activeSession = await getActiveGameSession(userId);
-  if (activeSession) return false;
-
-  await deleteUser(userId);
-  return true;
+export async function deleteUserIfZeroBalance(_userId: string): Promise<boolean> {
+  void _userId;
+  return false;
 }
 
 export function publicUser(user: UserRow, rank: number | null) {
@@ -263,11 +274,19 @@ export function publicUser(user: UserRow, rank: number | null) {
 
 export function serializeActiveSession(session: GameSessionRow | null) {
   if (!session) return null;
+  let blast = null;
+  if (session.board_json) {
+    try {
+      blast = JSON.parse(session.board_json);
+    } catch {
+      blast = null;
+    }
+  }
   return {
     id: session.id,
-    currentNumber: session.current_number,
-    sessionPoints: session.session_points,
-    currentStreak: session.current_streak,
+    score: Number(session.session_points) || 0,
+    combo: session.current_streak,
     isActive: session.is_active === 1,
+    blast,
   };
 }

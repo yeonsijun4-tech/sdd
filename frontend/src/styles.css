@@ -2666,3 +2666,135 @@ tr.is-me {
   color: rgba(255, 255, 255, 0.82);
   font-size: 0.88rem;
 }
+
+.blast-board {
+  padding: 18px;
+  display: grid;
+  gap: 16px;
+}
+
+.blast-hud {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.blast-hud div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 12px;
+  background: #000;
+}
+
+.blast-hud span {
+  color: rgba(255, 255, 255, 0.62);
+  font-size: 0.78rem;
+}
+
+.blast-hud strong {
+  color: #fff;
+  font-size: 1.1rem;
+}
+
+.blast-grid {
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 4px;
+  aspect-ratio: 1;
+  max-width: 420px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.blast-cell {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #141414;
+  padding: 0;
+  cursor: pointer;
+}
+
+.blast-cell.is-ghost {
+  outline: 2px solid rgba(255, 215, 120, 0.85);
+  background: rgba(255, 215, 120, 0.28);
+}
+
+.blast-cell.c1 { background: #5ad1ff; }
+.blast-cell.c2 { background: #7dff7a; }
+.blast-cell.c3 { background: #ffd76a; }
+.blast-cell.c4 { background: #ff7ad9; }
+.blast-cell.c5 { background: #ff7a7a; }
+.blast-cell.c6 { background: #b48cff; }
+.blast-cell.c7 { background: #ffb26a; }
+
+.blast-hand {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+}
+
+.blast-piece {
+  min-height: 92px;
+  display: grid;
+  place-content: center;
+  gap: 3px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #0a0a0a;
+  padding: 10px;
+}
+
+.blast-piece.is-selected {
+  border-color: #ffd978;
+  box-shadow: 0 0 18px rgba(255, 217, 120, 0.25);
+}
+
+.blast-piece-empty {
+  opacity: 0.35;
+}
+
+.blast-piece-row {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+}
+
+.blast-mini {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.blast-mini.empty {
+  background: transparent;
+}
+
+.blast-mini.c1 { background: #5ad1ff; }
+.blast-mini.c2 { background: #7dff7a; }
+.blast-mini.c3 { background: #ffd76a; }
+.blast-mini.c4 { background: #ff7ad9; }
+.blast-mini.c5 { background: #ff7a7a; }
+.blast-mini.c6 { background: #b48cff; }
+.blast-mini.c7 { background: #ffb26a; }
+
+.blast-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.blast-hint,
+.blast-over {
+  margin: 0;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.blast-over {
+  color: #ffd978;
+  font-weight: 700;
+}

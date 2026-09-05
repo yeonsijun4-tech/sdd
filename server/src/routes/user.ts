@@ -3,7 +3,6 @@ import { hashPassword, isValidPassword, verifyPassword } from "../auth/crypto.js
 import { readJsonBody } from "../lib/http.js";
 import { mapApiError } from "../lib/dbError.js";
 import {
-  deleteUserIfZeroBalance,
   findUserById,
   getActiveGameSession,
   getUserRank,
@@ -19,17 +18,6 @@ user.get("/me", async (c) => {
   const userId = c.get("userId");
   const dbUser = await findUserById(userId);
   if (!dbUser) return c.json({ error: "사용자를 찾을 수 없습니다." }, 404);
-
-  const accountDeleted = await deleteUserIfZeroBalance(userId);
-  if (accountDeleted) {
-    return c.json(
-      {
-        error: "보유 포인트가 0P가 되어 계정이 삭제되었습니다.",
-        accountDeleted: true,
-      },
-      410
-    );
-  }
 
   const rank = await getUserRank(userId);
   const activeSession = await getActiveGameSession(userId);

@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS game_sessions (
   current_streak INTEGER NOT NULL DEFAULT 0,
   is_active INTEGER NOT NULL DEFAULT 1,
   started_at TEXT NOT NULL DEFAULT (datetime('now')),
+  board_json TEXT,
   FOREIGN KEY (user_id) REFERENCES users(id)
 );
 

@@ -1,9 +1,12 @@
+import { sanitizeUserMessage } from "./userMessage";
+import type { BlastState } from "./blockBlast";
+
 export interface PublicUser {
   id: string;
   nickname: string;
-  points: number;
+  points: string;
   maxStreak: number;
-  maxSessionGain: number;
+  maxSessionGain: string;
   gamesPlayed: number;
   wins: number;
   losses: number;
@@ -14,37 +17,18 @@ export interface PublicUser {
 
 export interface ActiveSession {
   id: string;
-  currentNumber: number;
-  sessionPoints: number;
-  currentStreak: number;
+  score: number;
+  combo: number;
   isActive: boolean;
-}
-
-export interface BoardState {
-  currentNumber: number;
-  minNumber: number;
-  maxNumber: number;
-  probabilities: {
-    up: number;
-    down: number;
-  };
-  multipliers: {
-    up: number;
-    down: number;
-  };
-  rules: {
-    probabilityRule: string;
-    multiplierRule: string;
-    rewardRule: string;
-  };
+  blast: BlastState | null;
 }
 
 export interface RankingEntry {
   rank: number;
   nickname: string;
-  points: number;
+  points: string;
   maxStreak: number;
-  maxSessionGain: number;
+  maxSessionGain: string;
 }
 
 export interface CaptchaChallenge {
@@ -52,7 +36,13 @@ export interface CaptchaChallenge {
   question: string;
 }
 
-import { sanitizeUserMessage } from "./userMessage";
+export interface GamePayload {
+  activeSession: ActiveSession | null;
+  blast: BlastState | null;
+  user?: PublicUser | null;
+  gameOver?: boolean;
+  message?: string;
+}
 
 const TOKEN_KEY = "1zuxm_token";
 const REMEMBER_KEY = "1zuxm_remember";
@@ -62,12 +52,7 @@ export class ApiError extends Error {
   accountDeleted: boolean;
   forceExit: boolean;
 
-  constructor(
-    message: string,
-    status: number,
-    accountDeleted = false,
-    forceExit = false
-  ) {
+  constructor(message: string, status: number, accountDeleted = false, forceExit = false) {
     super(message);
     this.status = status;
     this.accountDeleted = accountDeleted;
@@ -99,21 +84,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function isApiPath(path: string): boolean {
-  return path.startsWith("/api/");
-}
-
-function shouldRetryRequest(path: string, status: number, attempt: number): boolean {
-  if (attempt >= MAX_REQUEST_ATTEMPTS - 1) return false;
-  if (!isApiPath(path)) return false;
-  return RETRYABLE_STATUSES.has(status);
-}
-
-function defaultErrorMessage(status: number): string {
-  void status;
-  return "";
-}
-
 async function request<T>(path: string, options: RequestInit = {}, attempt = 0): Promise<T> {
   const token = getToken();
   const headers = new Headers(options.headers);
@@ -124,46 +94,34 @@ async function request<T>(path: string, options: RequestInit = {}, attempt = 0):
   try {
     response = await fetch(path, { ...options, headers });
   } catch {
-    if (attempt < MAX_REQUEST_ATTEMPTS - 1 && isApiPath(path)) {
+    if (attempt < MAX_REQUEST_ATTEMPTS - 1 && path.startsWith("/api/")) {
       await sleep(500 * (attempt + 1));
       return request(path, options, attempt + 1);
     }
-    throw new Error(
-      sanitizeUserMessage("서버에 연결할 수 없습니다. 같은 버튼을 다시 눌러 주세요.", 503)
-    );
+    throw new Error("서버에 연결할 수 없습니다. 같은 버튼을 다시 눌러 주세요.");
   }
 
   const text = await response.text();
   let data: { error?: string; accountDeleted?: boolean; forceExit?: boolean } = {};
-
   if (text) {
     try {
       data = JSON.parse(text);
     } catch {
-      if (shouldRetryRequest(path, response.status, attempt)) {
+      if (attempt < MAX_REQUEST_ATTEMPTS - 1 && RETRYABLE_STATUSES.has(response.status)) {
         await sleep(500 * (attempt + 1));
         return request(path, options, attempt + 1);
       }
-      throw new Error(
-        sanitizeUserMessage(
-          response.ok ? "서버 응답을 처리할 수 없습니다." : defaultErrorMessage(response.status),
-          response.status
-        )
-      );
+      throw new Error("서버 응답을 처리할 수 없습니다.");
     }
   }
 
   if (!response.ok) {
-    if (shouldRetryRequest(path, response.status, attempt)) {
+    if (attempt < MAX_REQUEST_ATTEMPTS - 1 && RETRYABLE_STATUSES.has(response.status)) {
       await sleep(500 * (attempt + 1));
       return request(path, options, attempt + 1);
     }
-
-    const rawMessage = data.error ?? defaultErrorMessage(response.status);
-    const message = sanitizeUserMessage(rawMessage, response.status);
-
     throw new ApiError(
-      message || rawMessage,
+      sanitizeUserMessage(data.error ?? "", response.status) || data.error || "같은 버튼을 다시 눌러 주세요.",
       response.status,
       data.accountDeleted === true,
       data.forceExit === true
@@ -184,18 +142,13 @@ export const api = {
     });
   },
   login(nickname: string, password: string, rememberMe: boolean) {
-    return request<{ token: string; user: PublicUser; rememberMe?: boolean }>(
-      "/api/auth/login",
-      {
-        method: "POST",
-        body: JSON.stringify({ nickname, password, rememberMe }),
-      }
-    );
+    return request<{ token: string; user: PublicUser; rememberMe?: boolean }>("/api/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ nickname, password, rememberMe }),
+    });
   },
   me() {
-    return request<{ user: PublicUser; activeSession: ActiveSession | null }>(
-      "/api/user/me"
-    );
+    return request<{ user: PublicUser; activeSession: ActiveSession | null }>("/api/user/me");
   },
   changePassword(currentPassword: string, newPassword: string) {
     return request<{ message: string }>("/api/user/password", {
@@ -203,57 +156,20 @@ export const api = {
       body: JSON.stringify({ currentPassword, newPassword }),
     });
   },
-  claimBonus() {
-    return request<{ message: string; user: PublicUser }>("/api/user/bonus", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
-  },
   gameState() {
-    return request<{ activeSession: ActiveSession | null; board?: BoardState }>(
-      "/api/game/state"
-    );
+    return request<GamePayload>("/api/game/state");
   },
-  startGame(betAmount: number) {
-    return request<{
-      activeSession: ActiveSession | null;
-      board: BoardState;
-      message?: string;
-      user?: PublicUser | null;
-      accountDeleted?: boolean;
-    }>("/api/game/start", {
+  startGame() {
+    return request<GamePayload>("/api/game/start", { method: "POST", body: JSON.stringify({}) });
+  },
+  placePiece(pieceIndex: number, row: number, col: number) {
+    return request<GamePayload>("/api/game/place", {
       method: "POST",
-      body: JSON.stringify({ betAmount }),
+      body: JSON.stringify({ pieceIndex, row, col }),
     });
   },
-  guess(choice: "UP" | "DOWN") {
-    return request<{
-      result: "WIN" | "LOSE";
-      previousNumber: number;
-      nextNumber: number;
-      choice: string;
-      gain?: number;
-      lostPoints?: number;
-      message?: string;
-      activeSession: ActiveSession | null;
-      board?: BoardState;
-      user?: PublicUser | null;
-      accountDeleted?: boolean;
-    }>("/api/game/guess", {
-      method: "POST",
-      body: JSON.stringify({ choice }),
-    });
-  },
-  cashout() {
-    return request<{
-      message: string;
-      earned: number;
-      user: PublicUser;
-      activeSession: null;
-    }>("/api/game/cashout", {
-      method: "POST",
-      body: JSON.stringify({}),
-    });
+  restartGame() {
+    return request<GamePayload>("/api/game/restart", { method: "POST", body: JSON.stringify({}) });
   },
   rankings() {
     return request<{
@@ -269,32 +185,6 @@ export const api = {
     return request<{ count: number }>("/api/presence/heartbeat", {
       method: "POST",
       body: JSON.stringify({ clientId }),
-    });
-  },
-  presenceCount() {
-    return request<{ count: number }>("/api/presence/count");
-  },
-  vaultEligibility() {
-    return request<{
-      eligible: boolean;
-      minMaxSessionGain: number;
-      minBet: number;
-      maxSessionGain: number;
-    }>("/api/vault/eligibility");
-  },
-  vaultSpin(betAmount: number) {
-    return request<{
-      reels: number[];
-      win: boolean;
-      betAmount: number;
-      payout: number;
-      netDelta: number;
-      message: string;
-      accountDeleted?: boolean;
-      user: PublicUser | null;
-    }>("/api/vault/spin", {
-      method: "POST",
-      body: JSON.stringify({ betAmount }),
     });
   },
 };

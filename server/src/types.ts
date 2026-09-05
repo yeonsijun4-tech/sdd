@@ -2,9 +2,9 @@ export interface UserRow {
   id: string;
   nickname: string;
   password_hash: string;
-  points: number;
+  points: string;
   max_streak: number;
-  max_session_gain: number;
+  max_session_gain: string;
   games_played: number;
   wins: number;
   losses: number;
@@ -16,20 +16,14 @@ export interface GameSessionRow {
   id: string;
   user_id: string;
   current_number: number;
-  session_points: number;
+  session_points: string;
   current_streak: number;
   is_active: number;
   started_at: string;
+  board_json: string | null;
 }
 
-export type GuessChoice = "UP" | "DOWN";
-
-export const MIN_NUMBER = 2;
-export const MAX_NUMBER = 10;
-export const WIN_MULTIPLIER = 2;
-export const HOUSE_EDGE = 0.03;
-export const STARTING_POINTS = 10000;
-export const BONUS_POINTS = 10000;
+export const STARTING_POINTS = 0;
 
 export type AppVariables = {
   userId: string;

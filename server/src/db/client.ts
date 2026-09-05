@@ -5,6 +5,7 @@ import { DatabaseSync, type SQLInputValue } from "node:sqlite";
 import pg from "pg";
 import { resolveDatabasePath, resolveSchemaPath, resolveSqliteSchemaPath } from "../lib/paths.js";
 import { isDbConnectionError } from "../lib/dbError.js";
+import { addBoardJsonColumn, grantDevPointsOnce, runPointColumnMigrations } from "../lib/migrations.js";
 
 const { Pool } = pg;
 
@@ -118,20 +119,10 @@ async function sleep(ms: number): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function runPointColumnMigrations(): Promise<void> {
-  const migrations = [
-    "ALTER TABLE users ALTER COLUMN points TYPE BIGINT",
-    "ALTER TABLE users ALTER COLUMN max_session_gain TYPE BIGINT",
-    "ALTER TABLE game_sessions ALTER COLUMN session_points TYPE BIGINT",
-  ];
-
-  for (const statement of migrations) {
-    try {
-      await query(statement);
-    } catch {
-      // Column may already be BIGINT or SQLite fallback is active elsewhere.
-    }
-  }
+async function runPointColumnMigrationsLocal(): Promise<void> {
+  await runPointColumnMigrations();
+  await addBoardJsonColumn();
+  await grantDevPointsOnce();
 }
 
 export async function initDb(): Promise<void> {
@@ -145,7 +136,7 @@ export async function initDb(): Promise<void> {
         await resetPoolSafe();
         await getPool().query("SELECT 1");
         await getPool().query(schema);
-        await runPointColumnMigrations();
+        await runPointColumnMigrationsLocal();
         console.log("PostgreSQL database ready");
         return;
       } catch (error) {

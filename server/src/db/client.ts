@@ -160,9 +160,8 @@ export async function initDb(): Promise<void> {
     }
 
     if (process.env.DATABASE_URL) {
-      throw lastError instanceof Error
-        ? lastError
-        : new Error("PostgreSQL database is unavailable.");
+      console.error("PostgreSQL still unavailable after retries. Server will keep running.", lastError);
+      return;
     }
 
     console.error("PostgreSQL unavailable. Falling back to SQLite:", lastError);

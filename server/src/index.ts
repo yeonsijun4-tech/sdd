@@ -1,7 +1,7 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
 import { Hono } from "hono";
-import { getJwtSecret, initDb, query, startDbKeepAlive } from "./db/client.js";
+import { getJwtSecret, initDb, startDbKeepAlive } from "./db/client.js";
 import { mapApiError } from "./lib/dbError.js";
 import { resolvePublicDir } from "./lib/paths.js";
 import { readJsonBody } from "./lib/http.js";
@@ -14,16 +14,7 @@ import userRoutes from "./routes/user.js";
 
 const publicDir = resolvePublicDir();
 const app = new Hono();
-
-try {
-  await initDb();
-  getJwtSecret();
-  startDbKeepAlive();
-  console.log("Database and auth configuration ready");
-} catch (error) {
-  console.error("Startup initialization failed:", error);
-  throw error;
-}
+getJwtSecret();
 
 app.onError((error, c) => {
   console.error(error);
@@ -42,27 +33,11 @@ app.use("/api/*", async (c, next) => {
   }
 });
 
-app.get("/api/health", async (c) => {
-  try {
-    await query("SELECT 1");
-    return c.json({
-      ok: true,
-      db: "ok",
-      time: new Date().toISOString(),
-    });
-  } catch (error) {
-    console.error("Health check failed:", error);
-    const mapped = mapApiError(error);
-    return c.json(
-      {
-        ok: false,
-        db: "error",
-        error: mapped.message,
-        time: new Date().toISOString(),
-      },
-      mapped.status
-    );
-  }
+app.get("/api/health", (c) => {
+  return c.json({
+    ok: true,
+    time: new Date().toISOString(),
+  });
 });
 
 app.get("/api/session/info", (c) => {
@@ -124,3 +99,12 @@ serve(
     console.log(`1zuxm-game running on http://${info.address}:${info.port}`);
   }
 );
+
+void initDb()
+  .then(() => {
+    startDbKeepAlive();
+    console.log("Database and auth configuration ready");
+  })
+  .catch((error) => {
+    console.error("Startup initialization failed:", error);
+  });

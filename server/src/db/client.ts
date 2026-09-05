@@ -120,9 +120,21 @@ async function sleep(ms: number): Promise<void> {
 }
 
 async function runPointColumnMigrationsLocal(): Promise<void> {
-  await runPointColumnMigrations();
-  await addBoardJsonColumn();
-  await grantDevPointsOnce();
+  try {
+    await runPointColumnMigrations();
+  } catch (error) {
+    console.error("Point column migration skipped:", error);
+  }
+  try {
+    await addBoardJsonColumn();
+  } catch (error) {
+    console.error("board_json migration skipped:", error);
+  }
+  try {
+    await grantDevPointsOnce();
+  } catch (error) {
+    console.error("DEV point grant skipped:", error);
+  }
 }
 
 export async function initDb(): Promise<void> {

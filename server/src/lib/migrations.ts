@@ -44,20 +44,24 @@ export async function addBoardJsonColumn(): Promise<void> {
 }
 
 export async function grantDevPointsOnce(): Promise<void> {
-  await ensureMigrationsTable();
+  try {
+    await ensureMigrationsTable();
 
-  const migrationId = `grant-dev-${DEV_POINT_GRANT}`;
-  if (await hasMigration(migrationId)) return;
+    const migrationId = `grant-dev-${DEV_POINT_GRANT}`;
+    if (await hasMigration(migrationId)) return;
 
-  for (const nickname of DEV_NICKNAMES) {
-    await query(
-      `UPDATE users
-       SET points = COALESCE(points, 0) + $1::numeric
-       WHERE LOWER(nickname) = LOWER($2)`,
-      [DEV_POINT_GRANT, nickname]
-    );
+    for (const nickname of DEV_NICKNAMES) {
+      await query(
+        `UPDATE users
+         SET points = COALESCE(points, 0) + $1
+         WHERE LOWER(nickname) = LOWER($2)`,
+        [DEV_POINT_GRANT, nickname]
+      );
+    }
+
+    await markMigration(migrationId);
+    console.log(`Granted ${DEV_POINT_GRANT} points to DEV accounts.`);
+  } catch (error) {
+    console.error("DEV point grant skipped:", error);
   }
-
-  await markMigration(migrationId);
-  console.log(`Granted ${DEV_POINT_GRANT} points to DEV accounts.`);
 }

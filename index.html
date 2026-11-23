@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>풀어볼까 by csrift — 문제를 이해하고 스스로 학습하는 AI 학습 보조 서비스</title>
+<meta name="description" content="교재 인식, AI 단계별 풀이, 스마트 필기, AI 개념 요약까지 학습의 흐름을 하나로 연결하는 풀어볼까. 현재 개발 및 출시 준비 중입니다.">
+<meta name="theme-color" content="#E9E3F1">
+<meta property="og:type" content="website">
+<meta property="og:title" content="풀어볼까 by csrift">
+<meta property="og:description" content="어려운 문제도, 이제는 함께 풀어볼까? 출시 준비 중인 AI 학습 보조 서비스.">
+<meta property="og:locale" content="ko_KR">
+<meta name="twitter:card" content="summary">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23E9E3F1'/%3E%3Ctext x='50' y='64' font-size='52' font-weight='900' text-anchor='middle' fill='%23fff' font-family='sans-serif'%3E풀%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Gowun+Dodum&family=Jua&display=swap" rel="stylesheet">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"csrift","description":"독립 개발 브랜드 csrift. 풀어볼까 by csrift를 개발하고 있습니다.","founder":{"@type":"Person","name":"연서준"}}</script>
+<style>
+:root{
+  --bg:#E9E3F1;--bg2:#F3F1F7;--sub:#9E95B3;--acc:#7A7091;--acc-d:#5D5473;--ink:#2A2536;--mut:#675F7B;--line:#E3DDEB;--w:#fff;
+  --r:28px;--max:1120px;--ease:cubic-bezier(.22,.8,.3,1);
+  --body:"Gowun Dodum","Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",system-ui,sans-serif;
+  --head:"Jua","Gowun Dodum","Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+html{scroll-behavior:smooth;scroll-padding-top:76px;-webkit-text-size-adjust:100%}
+body{font-family:var(--body);color:var(--ink);background:#fff;line-height:1.7;font-size:1rem;word-break:keep-all;overflow-x:hidden}
+svg{display:block;max-width:100%}
+a{color:inherit;text-decoration:none}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+:focus-visible{outline:3px solid var(--acc);outline-offset:3px;border-radius:10px}
+.i{width:1.15em;height:1.15em;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.skip{position:absolute;left:12px;top:-60px;background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;z-index:100;transition:top .2s}.skip:focus{top:12px}
+.wrap{max-width:var(--max);margin:0 auto;padding:0 24px}
+section{padding:120px 0;position:relative}
+.alt{background:var(--bg2)}
+.eyebrow{display:inline-flex;align-items:center;gap:8px;font-size:.85rem;color:var(--acc-d);background:rgba(255,255,255,.7);border:1px solid var(--line);padding:6px 14px;border-radius:999px;margin-bottom:22px}
+h1,h2,h3{font-family:var(--head);font-weight:400;line-height:1.25;letter-spacing:-.02em}
+h2{font-size:clamp(1.9rem,4.8vw,3.1rem)}
+h3{font-size:1.3rem}
+.lead{color:var(--mut);font-size:clamp(1rem,2vw,1.15rem);max-width:640px;margin-top:18px}
+.center{text-align:center}.center .lead{margin-inline:auto}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 28px;border-radius:999px;font-size:1rem;transition:transform .3s var(--ease),background .3s,box-shadow .3s}
+.btn-p{background:var(--acc);color:#fff}.btn-p:hover{background:var(--acc-d);transform:translateY(-2px);box-shadow:0 12px 28px -8px rgba(93,84,115,.5)}
+.btn-g{background:rgba(255,255,255,.75);color:var(--acc-d);border:1px solid var(--line)}.btn-g:hover{background:#fff;transform:translateY(-2px)}
+.btn:active{transform:scale(.97)}
+.pill-off{display:inline-flex;align-items:center;gap:8px;padding:14px 26px;border-radius:999px;background:rgba(255,255,255,.75);color:var(--acc-d)}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--acc);animation:pulse 2s infinite}
+@keyframes pulse{50%{opacity:.25}}
+
+/* nav */
+header{position:sticky;top:0;z-index:50;background:rgba(243,241,247,.72);backdrop-filter:saturate(180%) blur(20px);-webkit-backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid transparent;transition:border-color .3s,background .3s}
+header.sc{border-color:var(--line);background:rgba(255,255,255,.8)}
+.nav{display:flex;align-items:center;justify-content:space-between;height:60px;gap:16px}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--head);font-size:1.1rem}
+.brand svg{width:32px;height:32px;border-radius:9px}
+.menu{display:flex;gap:4px;list-style:none;padding:0}
+.menu a{display:block;font-size:.88rem;color:var(--mut);padding:8px 12px;border-radius:999px;transition:.2s}
+.menu a:hover,.menu a.on{color:var(--acc-d);background:rgba(122,112,145,.12)}
+.burger{display:none;width:44px;height:44px;border-radius:12px;place-items:center}
+.burger span,.burger span::before,.burger span::after{display:block;width:20px;height:2px;background:var(--ink);border-radius:2px;position:relative;transition:.3s}
+.burger span::before,.burger span::after{content:"";position:absolute;left:0}
+.burger span::before{top:-6px}.burger span::after{top:6px}
+.burger[aria-expanded=true] span{background:transparent}
+.burger[aria-expanded=true] span::before{top:0;transform:rotate(45deg)}
+.burger[aria-expanded=true] span::after{top:0;transform:rotate(-45deg)}
+
+/* hero */
+.hero{padding:64px 0 110px;background:radial-gradient(800px 480px at 80% 0,#fff 0,rgba(255,255,255,0) 60%),linear-gradient(180deg,var(--bg) 0,var(--bg2) 100%);overflow:hidden}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:40px;align-items:center}
+.hero h1{font-size:clamp(2.5rem,6.6vw,4.8rem)}
+.hero h1 em{font-style:normal;color:var(--acc)}
+.hero .lead{max-width:520px}
+.acts{display:flex;flex-wrap:wrap;gap:12px;margin-top:34px}
+.note{font-size:.85rem;color:var(--mut);margin-top:18px}
+.stage{position:relative;display:grid;place-items:center;min-height:520px}
+.stage::before{content:"";position:absolute;width:420px;height:420px;border-radius:50%;background:radial-gradient(circle,rgba(255,255,255,.95),rgba(255,255,255,0) 70%);filter:blur(4px)}
+.fl{position:absolute;background:rgba(255,255,255,.82);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.9);border-radius:18px;padding:10px 14px;font-size:.82rem;box-shadow:0 18px 40px -16px rgba(93,84,115,.4);display:flex;align-items:center;gap:8px;color:var(--acc-d);animation:bob 6s ease-in-out infinite}
+.fl .i{color:var(--acc)}
+.fl.a{left:-6%;top:62%}.fl.b{right:-2%;top:40%;animation-delay:-2s}.fl.c{right:-4%;top:7%;animation-delay:-4s}
+@keyframes bob{50%{transform:translateY(-10px)}}
+.cap{font-size:.8rem;color:var(--mut);text-align:center;margin-top:16px}
+
+/* phone mockup */
+.ph{text-align:left;position:relative;width:264px;aspect-ratio:9/19;border-radius:40px;background:#fff;border:7px solid #3b3447;box-shadow:0 40px 70px -26px rgba(93,84,115,.5);overflow:hidden;flex:none}
+.ph::before{content:"";position:absolute;top:7px;left:50%;width:62px;height:16px;background:#3b3447;border-radius:12px;transform:translateX(-50%);z-index:3}
+.sc2{position:absolute;inset:0;padding:30px 13px 12px;display:flex;flex-direction:column;gap:8px;font-size:11px;line-height:1.45;background:var(--bg2);overflow:hidden;color:var(--ink)}
+.sb{display:flex;justify-content:space-between;font-size:9px;color:var(--mut);margin:-14px 4px 0}
+.m-t{font-family:var(--head);font-size:15px;line-height:1.3}
+.m-s{color:var(--mut);font-size:10px}
+.m-c{background:#fff;border-radius:16px;padding:10px 11px;box-shadow:0 2px 10px -4px rgba(93,84,115,.25)}
+.m-r{display:flex;align-items:center;gap:8px}
+.m-g{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.m-q{background:#fff;border-radius:14px;padding:10px 8px;text-align:center;font-size:10px;display:grid;gap:4px;justify-items:center}
+.m-q .i{width:20px;height:20px;color:var(--acc)}
+.m-b{background:var(--acc);color:#fff;border-radius:999px;padding:8px 10px;text-align:center;font-size:11px;margin-top:auto}
+.m-b.l{background:#fff;color:var(--acc-d);margin-top:0;border:1px solid var(--line)}
+.m-f{background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px;color:var(--mut)}
+.m-f small{display:block;font-size:8.5px;color:var(--sub)}
+.m-f b{font-weight:400;color:var(--ink)}
+.m-f.w{border-color:var(--acc);background:#F6F2FB}
+.m-tag{display:inline-block;font-size:8.5px;background:var(--bg);color:var(--acc-d);padding:1px 7px;border-radius:999px}
+.cv{width:30px;height:40px;border-radius:5px 8px 8px 5px;background:linear-gradient(135deg,var(--sub),var(--acc));flex:none;position:relative}
+.cv::after{content:"";position:absolute;left:5px;right:5px;top:9px;height:3px;border-radius:2px;background:rgba(255,255,255,.8);box-shadow:0 6px 0 rgba(255,255,255,.55)}
+.cv.b{background:linear-gradient(135deg,#C9BEDD,var(--sub))}.cv.c{background:linear-gradient(135deg,var(--bg),var(--sub))}
+.ln{height:7px;border-radius:4px;background:var(--bg)}
+.m-tb{margin-top:auto;display:flex;justify-content:space-around;background:#fff;border-radius:18px;padding:8px 4px;color:var(--sub)}
+.m-tb .i{width:17px;height:17px}.m-tb .on{color:var(--acc)}
+.view{flex:1;min-height:150px;border-radius:18px;background:linear-gradient(160deg,#9b93ad,#6d6481);position:relative;overflow:hidden;display:grid;place-items:center}
+.view::before,.view::after{content:"";position:absolute;inset:18px;border:2px solid rgba(255,255,255,.85);border-radius:14px;clip-path:polygon(0 0,22% 0,22% 3px,3px 3px,3px 22%,0 22%,0 78%,3px 78%,3px calc(100% - 3px),22% calc(100% - 3px),22% 100%,0 100%,0 0,100% 0,100% 22%,calc(100% - 3px) 22%,calc(100% - 3px) 3px,78% 3px,78% 0)}
+.view::after{border:0;inset:0;background:linear-gradient(180deg,transparent,rgba(255,255,255,.55),transparent);height:36px;animation:scan 2.6s ease-in-out infinite}
+.view .bk{width:96px;height:128px;border-radius:6px 12px 12px 6px;background:linear-gradient(135deg,#E9E3F1,#cfc5e2);box-shadow:0 12px 24px -8px rgba(0,0,0,.35);padding:14px 10px;display:grid;gap:6px;align-content:start}
+.view .bk i{display:block;height:6px;border-radius:3px;background:rgba(122,112,145,.55)}
+@keyframes scan{0%{transform:translateY(0)}50%{transform:translateY(220px)}100%{transform:translateY(0)}}
+.shut{width:46px;height:46px;border-radius:50%;border:3px solid var(--acc);margin:auto;display:grid;place-items:center}.shut::after{content:"";width:32px;height:32px;border-radius:50%;background:var(--acc)}
+.dz{flex:none;border:1.5px dashed var(--sub);border-radius:16px;padding:12px;text-align:center;background:#fff;color:var(--mut)}
+.dz svg.pb{margin:6px auto 0;width:100%;height:auto}
+.stp{display:flex;gap:8px;background:#fff;border-radius:14px;padding:8px 10px}
+.stp b{width:18px;height:18px;border-radius:50%;background:var(--acc);color:#fff;display:grid;place-items:center;font-size:9px;font-weight:400;flex:none}
+.warn{background:#F6F2FB;border:1px solid var(--bg);border-radius:12px;padding:7px 9px;color:var(--acc-d);font-size:9.5px;display:flex;gap:6px}
+.grid-p{flex:1;border-radius:16px;background:#fff;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:18px 18px;position:relative;min-height:170px}
+.grid-p svg{position:absolute;inset:0;width:100%;height:100%}
+.pen{fill:none;stroke:#4a4160;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;stroke-dasharray:400;stroke-dashoffset:400;animation:draw 6s ease-in-out infinite}
+.pen.p2{animation-delay:1.2s}.pen.p3{animation-delay:2.4s}
+@keyframes draw{0%{stroke-dashoffset:400}30%,85%{stroke-dashoffset:0}100%{stroke-dashoffset:400}}
+.rough{fill:none;stroke:var(--sub);stroke-width:2;stroke-dasharray:3 3;animation:rough 6s ease-in-out infinite}
+.clean{fill:none;stroke:var(--acc);stroke-width:2.4;animation:clean 6s ease-in-out infinite;opacity:0}
+@keyframes rough{0%,40%{opacity:1}55%,100%{opacity:0}}
+@keyframes clean{0%,45%{opacity:0}60%,90%{opacity:1}100%{opacity:0}}
+.tools{display:flex;gap:6px;align-items:center;background:#fff;border-radius:999px;padding:6px 10px;color:var(--mut)}
+.tools .on{color:#fff;background:var(--acc);border-radius:50%;padding:4px;width:22px;height:22px}
+.tg{margin-left:auto;width:28px;height:16px;border-radius:9px;background:var(--acc);position:relative}.tg::after{content:"";position:absolute;right:2px;top:2px;width:12px;height:12px;border-radius:50%;background:#fff}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;padding:12px 13px 14px;display:flex;flex-direction:column;gap:7px;box-shadow:0 -14px 30px -12px rgba(93,84,115,.35);top:34%}
+.sheet::before{content:"";width:34px;height:4px;border-radius:2px;background:var(--line);margin:-2px auto 2px}
+.ta{background:var(--bg2);border-radius:12px;padding:8px 9px;min-height:62px;color:var(--ink)}
+.caret{display:inline-block;width:1px;height:11px;background:var(--acc);vertical-align:middle;animation:blink 1s steps(2) infinite}
+@keyframes blink{50%{opacity:0}}
+.dim{position:absolute;inset:0;background:rgba(42,37,54,.35);display:grid;place-items:center;padding:20px;z-index:2}
+.dim div{background:#fff;border-radius:18px;padding:14px;text-align:center;display:grid;gap:8px;width:100%}
+
+/* sections */
+.flow{display:grid;grid-template-columns:repeat(4,1fr);gap:0;margin-top:64px;position:relative}
+.flow::before{content:"";position:absolute;left:12.5%;right:12.5%;top:34px;height:2px;background:linear-gradient(90deg,var(--bg),var(--sub),var(--bg))}
+.node{text-align:center;position:relative;padding:0 10px}
+.node .ic{width:68px;height:68px;margin:0 auto 18px;border-radius:50%;background:#fff;border:2px solid var(--bg);display:grid;place-items:center;color:var(--acc);position:relative;transition:.4s var(--ease)}
+.node .ic .i{width:28px;height:28px}
+.node:hover .ic{background:var(--acc);color:#fff;transform:scale(1.08)}
+.node h3{font-size:1.1rem}.node p{font-size:.9rem;color:var(--mut);margin-top:6px}
+.bento{display:grid;grid-template-columns:repeat(2,1fr);gap:20px;margin-top:60px}
+.fc{background:var(--bg2);border-radius:var(--r);padding:36px;display:flex;flex-direction:column;gap:14px;transition:transform .5s var(--ease),box-shadow .5s;overflow:hidden;position:relative}
+.alt .fc{background:#fff}
+.fc:hover{transform:translateY(-6px);box-shadow:0 30px 50px -30px rgba(93,84,115,.45)}
+.fc .ic{width:50px;height:50px;border-radius:16px;background:var(--acc);color:#fff;display:grid;place-items:center}
+.fc .ic .i{width:24px;height:24px}
+.fc .lt{font-size:.78rem;color:var(--acc-d);background:var(--bg);padding:3px 11px;border-radius:999px;align-self:flex-start}
+.fc ul{list-style:none;padding:0;display:grid;gap:7px;color:var(--mut);font-size:.95rem}
+.fc li{display:flex;gap:9px}.fc li .i{color:var(--acc);margin-top:.28em;width:1em;height:1em}
+.fc .tip{display:flex;gap:10px;background:rgba(122,112,145,.1);border-radius:16px;padding:12px 14px;font-size:.9rem;color:var(--acc-d)}
+.fc .tip .i{margin-top:.25em}
+.vis{margin-top:auto;padding-top:6px;display:flex;flex-wrap:wrap;gap:8px}
+.vc{background:var(--bg);color:var(--acc-d);font-size:.82rem;padding:6px 13px;border-radius:999px;animation:in 4s ease-in-out infinite}
+.vc:nth-child(2){animation-delay:.2s}.vc:nth-child(3){animation-delay:.4s}.vc:nth-child(4){animation-delay:.6s}.vc:nth-child(5){animation-delay:.8s}.vc:nth-child(6){animation-delay:1s}
+.vc.q{background:#fff;border:1.5px dashed var(--acc)}
+@keyframes in{0%{opacity:.35;transform:translateY(4px)}12%,80%{opacity:1;transform:none}100%{opacity:.35}}
+.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:40px}
+.wide>div{flex:1}
+
+/* gallery */
+.gal-h{display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:36px}
+.chip{padding:8px 16px;border-radius:999px;background:#fff;border:1px solid var(--line);font-size:.88rem;color:var(--mut);transition:.25s}
+.chip:hover{border-color:var(--acc)}.chip[aria-pressed=true]{background:var(--acc);color:#fff;border-color:var(--acc)}
+.track{display:flex;gap:32px;overflow-x:auto;scroll-snap-type:x mandatory;padding:36px max(24px,calc((100vw - var(--max))/2 + 24px)) 40px;scrollbar-width:none;scroll-padding-inline:max(24px,calc((100vw - var(--max))/2 + 24px))}
+.track::-webkit-scrollbar{display:none}
+.shot{flex:none;scroll-snap-align:start;width:264px;text-align:center}
+.shot figcaption{margin-top:18px;font-size:.9rem;color:var(--mut)}
+.shot figcaption b{display:block;font-family:var(--head);font-weight:400;font-size:1.05rem;color:var(--ink)}
+.ctl{display:flex;gap:8px}
+.ctl button{width:46px;height:46px;border-radius:50%;background:#fff;border:1px solid var(--line);display:grid;place-items:center;color:var(--acc-d);transition:.25s}
+.ctl button:hover{background:var(--acc);color:#fff}
+
+/* steps */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;margin-top:60px;list-style:none;padding:0}
+.steps li{background:var(--bg2);border-radius:var(--r);padding:28px;position:relative;transition:transform .4s var(--ease),background .3s}
+.alt .steps li{background:#fff}.alt .steps li:hover{background:var(--bg)}
+.steps li:hover{transform:translateY(-5px);background:var(--bg)}
+.steps .n{font-family:var(--head);font-size:2.4rem;color:var(--sub);line-height:1;opacity:.55}
+.steps .ic{position:absolute;right:24px;top:24px;color:var(--acc)}
+.steps .ic .i{width:26px;height:26px}
+.steps h3{font-size:1.15rem;margin:18px 0 6px}
+.steps p{color:var(--mut);font-size:.92rem}
+.steps .s{display:inline-block;font-size:.72rem;background:#fff;color:var(--acc-d);padding:2px 9px;border-radius:999px;margin-top:10px}
+
+/* developer */
+.dev{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin-top:56px}
+.dev .fc{background:#fff}
+.av{width:72px;height:72px;border-radius:50%;background:var(--bg);display:grid;place-items:center;font-family:var(--head);font-size:1.8rem;color:#fff;background:var(--acc)}
+
+/* faq */
+.faq{max-width:780px;margin:56px auto 0}
+details{border-bottom:1px solid var(--line)}
+summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:16px;padding:22px 4px;font-family:var(--head);font-size:1.12rem}
+summary::-webkit-details-marker{display:none}
+summary::after{content:"+";font-family:var(--body);font-size:1.6rem;line-height:1;color:var(--acc);transition:transform .35s var(--ease)}
+details[open] summary::after{transform:rotate(45deg)}
+details .a{display:grid;grid-template-rows:0fr;transition:grid-template-rows .4s var(--ease)}
+details[open] .a{grid-template-rows:1fr}
+details .a>p{overflow:hidden;color:var(--mut);padding:0 4px}
+details[open] .a>p{padding-bottom:22px}
+.faq a,.dlg a{color:var(--acc-d);text-decoration:underline}
+
+/* cta */
+.cta{margin:0 24px 24px;border-radius:40px;background:radial-gradient(600px 300px at 20% 0,rgba(255,255,255,.7),transparent 70%),linear-gradient(160deg,var(--bg),#d9d0e8);text-align:center;padding:104px 24px}
+.cta .lead{margin-inline:auto}
+.cta .pill-off{margin-top:32px}
+
+footer{padding:56px 0 44px;border-top:1px solid var(--line);font-size:.9rem;color:var(--mut)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:28px}
+.foot ul{list-style:none;padding:0;display:flex;flex-wrap:wrap;gap:8px 22px}
+.foot a:hover{color:var(--ink)}
+.copy{margin-top:28px;font-size:.82rem;line-height:1.8}
+.copy a{text-decoration:underline}
+
+/* legal */
+.legal{max-width:780px;margin:0 auto;padding:56px 24px 110px}
+.dlg h2{font-size:clamp(1.7rem,4vw,2.3rem);margin:18px 0 6px}
+.dlg h3{font-size:1.15rem;margin:30px 0 8px}
+.dlg p,.dlg li{color:var(--mut);font-size:.96rem}
+.dlg ul{padding-left:20px;display:grid;gap:8px}
+.dlg b{color:var(--ink);font-weight:400;font-family:var(--head)}
+.back{display:inline-block;color:var(--acc-d);font-size:.92rem}
+.legal[hidden],#main[hidden]{display:none}
+.tbl{overflow-x:auto;margin-top:8px;border:1px solid var(--line);border-radius:16px}
+.tbl table{border-collapse:collapse;width:100%;min-width:560px;font-size:.88rem}
+.tbl th,.tbl td{padding:12px 14px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line);color:var(--mut)}
+.tbl th{background:var(--bg2);color:var(--ink)}.tbl tr:last-child td{border-bottom:0}.tbl td:first-child{color:var(--ink)}
+
+.rv{opacity:0;transform:translateY(28px);transition:opacity .9s var(--ease),transform .9s var(--ease)}
+.rv.in{opacity:1;transform:none}
+
+@media(max-width:1000px){
+  .menu{position:fixed;inset:60px 0 auto 0;background:rgba(255,255,255,.97);backdrop-filter:blur(20px);flex-direction:column;gap:0;padding:8px 24px 24px;border-bottom:1px solid var(--line);transform:translateY(-12px);opacity:0;visibility:hidden;transition:.3s var(--ease);max-height:calc(100vh - 60px);overflow:auto}
+  .menu.open{transform:none;opacity:1;visibility:visible}
+  .menu a{padding:16px 4px;font-size:1.05rem;border-radius:0;border-bottom:1px solid var(--line)}
+  .burger{display:grid}
+  section{padding:88px 0}
+  .hero-grid{grid-template-columns:1fr;text-align:center}
+  .hero .lead{margin-inline:auto}.acts{justify-content:center}
+  .stage{min-height:480px}
+  .steps{grid-template-columns:1fr 1fr}
+  .wide{flex-direction:column;align-items:stretch;gap:20px}
+}
+@media(max-width:720px){
+  .wrap{padding:0 20px}
+  section{padding:72px 0}
+  .hero{padding:36px 0 72px}
+  .acts .btn,.cta .pill-off{width:100%}
+  .flow{grid-template-columns:1fr;gap:28px;margin-top:44px}
+  .flow::before{left:34px;right:auto;top:34px;bottom:34px;width:2px;height:auto;background:linear-gradient(180deg,var(--bg),var(--sub),var(--bg))}
+  .node{display:grid;grid-template-columns:68px 1fr;gap:0 18px;text-align:left;padding:0}
+  .node .ic{margin:0;grid-row:span 2}
+  .node p{margin-top:0}
+  .bento,.dev,.steps{grid-template-columns:1fr}
+  .fc{padding:28px 24px}
+  .fl{font-size:.74rem;padding:8px 11px}.fl.a{left:0}.fl.b,.fl.c{display:none}
+  .cta{margin:0 12px 12px;border-radius:30px;padding:76px 20px}
+  .legal{padding:36px 20px 80px}
+  .chips{flex-wrap:nowrap;overflow-x:auto;margin-inline:-20px;padding:0 20px 6px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}.chip{white-space:nowrap}
+}
+@media(max-width:380px){.ph{width:240px}.shot{width:240px}.fl.a,.fl.c{display:none}}
+@media(prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}.rv{opacity:1;transform:none}.pen{stroke-dashoffset:0}.clean{opacity:1}.rough{opacity:0}}
+</style>
+</head>
+<body>
+<a class="skip" href="#main">본문 바로가기</a>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="logo" viewBox="0 0 200 200"><rect width="200" height="200" fill="#E9E3F1"/>
+    <text x="100" y="118" text-anchor="middle" font-family="Jua,'Arial Rounded MT Bold','Apple SD Gothic Neo',sans-serif" font-size="96" fill="#fff" stroke="#fff" stroke-width="1.5" stroke-linejoin="round">풀</text>
+    <text x="100" y="156" text-anchor="middle" font-family="Jua,'Arial Rounded MT Bold','Apple SD Gothic Neo',sans-serif" font-size="15" fill="#fff">by csrift©</text></symbol>
+  <symbol id="i-camera" viewBox="0 0 24 24"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3z"/><circle cx="12" cy="13" r="3"/></symbol>
+  <symbol id="i-image" viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+  <symbol id="i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol>
+  <symbol id="i-pen" viewBox="0 0 24 24"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5z"/></symbol>
+  <symbol id="i-spark" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9z"/><path d="M19 3v4M21 5h-4"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></symbol>
+  <symbol id="i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .7-1.5l7-6a2 2 0 0 1 2.6 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></symbol>
+  <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m17 8-5-5-5 5M12 3v12"/></symbol>
+  <symbol id="i-gauge" viewBox="0 0 24 24"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/></symbol>
+  <symbol id="i-arrow" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-right" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol>
+  <symbol id="i-shield" viewBox="0 0 24 24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></symbol>
+  <symbol id="i-lib" viewBox="0 0 24 24"><path d="m16 6 4 14M12 6v14M8 8v12M4 4v16"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 2 2 7l10 5 10-5z"/><path d="m2 17 10 5 10-5M2 12l10 5 10-5"/></symbol>
+  <symbol id="i-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></symbol>
+  <symbol id="i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-10 7L2 7"/></symbol>
+  <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2M7 12h10"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M12 20h9"/><path d="M16.4 3.6a2.1 2.1 0 0 1 3 3L8 18l-4 1 1-4z"/></symbol>
+  <symbol id="i-bulb" viewBox="0 0 24 24"><path d="M15 14c.2-1 .7-1.7 1.5-2.5 1-.9 1.5-2.2 1.5-3.5A6 6 0 0 0 6 8c0 1 .2 2.2 1.5 3.5.7.7 1.3 1.5 1.5 2.5M9 18h6M10 22h4"/></symbol>
+  <symbol id="i-ruler" viewBox="0 0 24 24"><path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0z"/><path d="m14.5 12.5 2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></symbol>
+  <symbol id="i-save" viewBox="0 0 24 24"><path d="M15.2 3a2 2 0 0 1 1.4.6l3.8 3.8a2 2 0 0 1 .6 1.4V19a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2z"/><path d="M17 21v-7a1 1 0 0 0-1-1H8a1 1 0 0 0-1 1v7M7 3v4a1 1 0 0 0 1 1h7"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M5 12h14M12 5v14"/></symbol>
+  <symbol id="i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+</defs></svg>
+
+<header id="top">
+  <div class="wrap nav">
+    <a class="brand" href="#top" aria-label="풀어볼까 홈"><svg role="img" aria-hidden="true" viewBox="0 0 200 200"><use href="#logo"/></svg><span>풀어볼까</span></a>
+    <nav aria-label="주 메뉴">
+      <ul class="menu" id="menu">
+        <li><a href="#about">서비스 소개</a></li>
+        <li><a href="#features">주요 기능</a></li>
+        <li><a href="#how">이용 방법</a></li>
+        <li><a href="#developer">개발자 소개</a></li>
+        <li><a href="#faq">FAQ</a></li>
+        <li><a href="#terms">이용약관</a></li>
+        <li><a href="#privacy">개인정보처리방침</a></li>
+      </ul>
+    </nav>
+    <button class="burger" id="burger" aria-label="메뉴 열기" aria-expanded="false" aria-controls="menu"><span></span></button>
+  </div>
+</header>
+
+<main id="main">
+
+<!-- HERO -->
+<section class="hero" aria-labelledby="h1">
+  <div class="wrap hero-grid">
+    <div class="rv">
+      <span class="eyebrow"><span class="dot"></span>개발 및 출시 준비 중</span>
+      <h1 id="h1">어려운 문제도,<br>이제는 함께<br><em>풀어볼까?</em></h1>
+      <p class="lead">교재 인식부터 AI 문제 풀이, 스마트 필기와 개념 정리까지. 하나로 연결되는 새로운 학습 경험.</p>
+      <div class="acts">
+        <a class="btn btn-p" href="#about">풀어볼까 알아보기 <i data-i="arrow"></i></a>
+        <a class="btn btn-g" href="#features">주요 기능 살펴보기</a>
+      </div>
+      <p class="note">풀어볼까는 아직 출시 전이에요. 이 사이트의 기능과 화면은 기획 중인 내용이며 변경될 수 있어요.</p>
+    </div>
+    <div class="rv" style="transition-delay:.15s">
+      <div class="stage" aria-hidden="true">
+        <div class="ph"><div class="sc2">
+          <div class="sb"><span>9:41</span><span>●●●</span></div>
+          <div><div class="m-s">안녕하세요 👋</div><div class="m-t">오늘도 함께<br>풀어볼까?</div></div>
+          <div class="m-g">
+            <div class="m-q"><i data-i="scan"></i>교재 인식</div><div class="m-q"><i data-i="bulb"></i>문제 풀이</div>
+            <div class="m-q"><i data-i="pen"></i>스마트 필기</div><div class="m-q"><i data-i="spark"></i>개념 요약</div>
+          </div>
+          <div class="m-c"><div class="m-s">이어서 학습하기</div><div class="m-r" style="margin-top:6px"><div class="cv"></div><div style="flex:1"><div class="ln" style="width:80%"></div><div class="ln" style="width:55%;margin-top:5px"></div></div></div></div>
+          <div class="m-tb"><i data-i="home" class="on"></i><i data-i="book"></i><i data-i="pen"></i><i data-i="clock"></i></div>
+        </div></div>
+        <div class="fl a"><i data-i="scan"></i>교재 정보 인식 · 확인 후 등록</div>
+        <div class="fl b"><i data-i="bulb"></i>단계별 풀이와 개념 설명</div>
+        <div class="fl c"><i data-i="spark"></i>핵심 개념 요약 · 오류 검토</div>
+      </div>
+      <p class="cap">컨셉 UI 목업 · 실제 앱 화면과 다를 수 있어요</p>
+    </div>
+  </div>
+</section>
+
+<!-- 서비스 소개 -->
+<section id="about" aria-labelledby="t-about">
+  <div class="wrap">
+    <div class="center rv">
+      <span class="eyebrow">서비스 소개</span>
+      <h2 id="t-about">문제를 푸는 순간부터<br>개념을 정리하는 순간까지</h2>
+      <p class="lead">풀어볼까는 학생들이 문제를 이해하고 스스로 학습할 수 있도록 돕는 AI 기반 학습 보조 서비스예요. 학습의 흐름을 하나로 연결하는 것을 목표로 하고 있어요.</p>
+    </div>
+    <div class="flow">
+      <div class="node rv"><div class="ic"><i data-i="scan"></i></div><h3>교재 인식</h3><p>표지를 찍으면 어떤 교재인지 찾아요</p></div>
+      <div class="node rv" style="transition-delay:.1s"><div class="ic"><i data-i="bulb"></i></div><h3>문제 풀이</h3><p>문제 사진을 단계별 풀이로 풀어요</p></div>
+      <div class="node rv" style="transition-delay:.2s"><div class="ic"><i data-i="pen"></i></div><h3>스마트 필기</h3><p>손떨림을 보정하며 노트에 적어요</p></div>
+      <div class="node rv" style="transition-delay:.3s"><div class="ic"><i data-i="spark"></i></div><h3>개념 요약</h3><p>필기를 요약하고 오류를 검토해요</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- 주요 기능 -->
+<section id="features" class="alt" aria-labelledby="t-feat">
+  <div class="wrap">
+    <div class="center rv">
+      <span class="eyebrow">주요 기능</span>
+      <h2 id="t-feat">학습에 필요한 여섯 가지</h2>
+      <p class="lead">아래 기능은 모두 기획·개발 중이에요. 정확하지 않은 정보를 AI가 지어내지 않도록, 불확실한 부분은 항상 이용자가 확인하게 설계하고 있어요.</p>
+    </div>
+    <div class="bento">
+      <article class="fc rv"><span class="lt">기획 중</span><div class="ic"><i data-i="scan"></i></div>
+        <h3>교재 자동 인식</h3>
+        <ul>
+          <li><i data-i="check"></i>교재 표지를 카메라로 촬영하거나 갤러리에서 선택</li>
+          <li><i data-i="check"></i>AI가 표지와 정보를 분석해 교재명, 출판사, 과목, 학년, 학기, 시리즈명 인식</li>
+          <li><i data-i="check"></i>인식 결과를 이용자가 확인하고 수정</li>
+          <li><i data-i="check"></i>확인한 교재를 내 교재 목록에 등록하고, 학습할 때 선택해서 활용</li>
+        </ul>
+        <div class="tip"><i data-i="info"></i><span>정보가 불확실하면 임의로 채우지 않고, 직접 확인하도록 안내해요.</span></div>
+        <div class="vis" aria-hidden="true"><span class="vc">교재명</span><span class="vc">출판사</span><span class="vc">과목</span><span class="vc">학년</span><span class="vc">학기</span><span class="vc q">시리즈명 · 확인 필요</span></div>
+      </article>
+
+      <article class="fc rv" style="transition-delay:.08s"><span class="lt">기획 중</span><div class="ic"><i data-i="bulb"></i></div>
+        <h3>AI 문제 풀이</h3>
+        <ul>
+          <li><i data-i="check"></i>문제 사진을 촬영하거나 업로드</li>
+          <li><i data-i="check"></i>이미지 속 문제를 자동 인식하고 내용을 분석</li>
+          <li><i data-i="check"></i>정답뿐 아니라 단계별 풀이 과정과 개념 설명 제공</li>
+          <li><i data-i="check"></i>교재 정보와 문제 이미지를 연계한 학습 경험</li>
+        </ul>
+        <div class="tip"><i data-i="info"></i><span>인식이 불확실한 글자나 수식은 먼저 확인을 요청해요. AI 결과는 학습 참고용이에요.</span></div>
+        <div class="vis" aria-hidden="true"><span class="vc">① 문제 읽기</span><span class="vc">② 개념 짚기</span><span class="vc">③ 단계별 풀이</span></div>
+      </article>
+
+      <article class="fc rv"><span class="lt">기획 중</span><div class="ic"><i data-i="pen"></i></div>
+        <h3>스마트 필기</h3>
+        <ul>
+          <li><i data-i="check"></i>디지털 필기 공간에서 자연스러운 펜 입력</li>
+          <li><i data-i="check"></i>손으로 적은 선의 작은 흔들림은 기본으로 보정</li>
+          <li><i data-i="check"></i>필기 내용 자동 저장, 노트로 관리</li>
+          <li><i data-i="check"></i>설정에서 켰을 때만 도형 자동 변환과 직선 그리기</li>
+        </ul>
+        <div class="vis" aria-hidden="true">
+          <svg viewBox="0 0 320 110" width="100%" style="background:#fff;border-radius:18px;background-image:linear-gradient(var(--line) 1px,transparent 1px),linear-gradient(90deg,var(--line) 1px,transparent 1px);background-size:20px 20px">
+            <path class="pen" d="M20 70 C40 20,60 100,80 55 S110 30,125 62"/><path class="pen p2" d="M150 80 L290 80" />
+            <ellipse class="rough" cx="225" cy="42" rx="40" ry="26" transform="rotate(-6 225 42)"/><ellipse class="clean" cx="225" cy="42" rx="38" ry="26"/>
+          </svg>
+        </div>
+      </article>
+
+      <article class="fc rv" style="transition-delay:.08s"><span class="lt">기획 중</span><div class="ic"><i data-i="spark"></i></div>
+        <h3>AI 개념 요약</h3>
+        <ul>
+          <li><i data-i="check"></i>작성한 필기 내용을 인식하고, 인식된 텍스트를 확인·수정</li>
+          <li><i data-i="check"></i>[개념 요약]을 누르고 확인 후 보내면, AI가 핵심 개념을 정리</li>
+          <li><i data-i="check"></i>틀렸을 가능성이 있는 개념이나 표현을 검토해 수정</li>
+          <li><i data-i="check"></i>정리한 내용을 이용자의 필기체 스타일로 노트에 작성</li>
+        </ul>
+        <div class="tip"><i data-i="info"></i><span>요약만 해 주는 것이 아니라, 내 필기를 바르게 정리하는 과정을 돕는 것이 목표예요.</span></div>
+      </article>
+
+      <article class="fc rv"><span class="lt">기획 중</span><div class="ic"><i data-i="layers"></i></div>
+        <h3>학습 기록 및 노트 관리</h3>
+        <ul>
+          <li><i data-i="check"></i>저장한 문제 풀이와 작성한 필기 노트</li>
+          <li><i data-i="check"></i>등록한 교재 목록</li>
+          <li><i data-i="check"></i>이전 학습 기록을 확인하고, 학습 자료를 다시 열기</li>
+        </ul>
+      </article>
+
+      <article class="fc rv" style="transition-delay:.08s"><span class="lt">기획 중</span><div class="ic"><i data-i="gauge"></i></div>
+        <h3>사용량 관리</h3>
+        <ul>
+          <li><i data-i="check"></i>AI 기능 사용량을 확인하고 관리</li>
+          <li><i data-i="check"></i>[보내기] 전 확인 창에서 사용량 차감을 먼저 안내, 취소하면 차감하지 않아요</li>
+          <li><i data-i="check"></i>오류로 결과를 받지 못했다면 확인을 요청할 수 있어요</li>
+        </ul>
+        <div class="tip"><i data-i="info"></i><span>구체적인 한도와 차감 기준은 정해지는 대로 앱에서 안내할 예정이에요.</span></div>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- 화면 둘러보기 -->
+<section id="screens" aria-labelledby="t-scr" style="padding-bottom:60px">
+  <div class="wrap gal-h">
+    <div class="rv">
+      <span class="eyebrow">앱 화면 미리보기</span>
+      <h2 id="t-scr">이런 화면을 상상하며<br>만들고 있어요</h2>
+      <p class="lead">아래 화면은 실제 앱이 아닌 <b style="font-weight:400;color:var(--acc-d)">컨셉 UI 목업</b>이에요. 개발 과정에서 달라질 수 있어요.</p>
+    </div>
+    <div class="ctl" aria-label="화면 넘기기"><button type="button" id="prev" aria-label="이전 화면"><i data-i="left"></i></button><button type="button" id="next" aria-label="다음 화면"><i data-i="right"></i></button></div>
+  </div>
+  <div class="wrap"><div class="chips" id="chips" role="group" aria-label="화면 선택"></div></div>
+  <div class="track" id="track" tabindex="0" role="region" aria-label="앱 화면 목업 목록 (좌우로 넘기기)">
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <svg viewBox="0 0 200 200" style="width:62px;height:62px;border-radius:18px;margin:20px auto 4px"><use href="#logo"/></svg>
+      <div class="m-t" style="text-align:center">풀어볼까에<br>오신 걸 환영해요</div>
+      <div class="m-f" style="margin-top:8px"><small>이메일</small><b>example@email.com</b></div>
+      <div class="m-f"><small>비밀번호</small><b>••••••••</b></div>
+      <div class="m-b" style="margin-top:6px">로그인</div>
+      <div class="m-s" style="text-align:center">처음이라면 회원가입</div>
+    </div></div><figcaption><b>로그인</b>계정 방식은 준비 중이에요</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div><div class="m-s">안녕하세요 👋</div><div class="m-t">오늘도 함께<br>풀어볼까?</div></div>
+      <div class="m-g"><div class="m-q"><i data-i="scan"></i>교재 인식</div><div class="m-q"><i data-i="bulb"></i>문제 풀이</div><div class="m-q"><i data-i="pen"></i>스마트 필기</div><div class="m-q"><i data-i="spark"></i>개념 요약</div></div>
+      <div class="m-c"><div class="m-s">이어서 학습하기</div><div class="m-r" style="margin-top:6px"><div class="cv"></div><div style="flex:1"><div class="ln" style="width:80%"></div><div class="ln" style="width:55%;margin-top:5px"></div></div></div></div>
+      <div class="m-tb"><i data-i="home" class="on"></i><i data-i="book"></i><i data-i="pen"></i><i data-i="clock"></i></div>
+    </div></div><figcaption><b>홈</b>기능으로 바로 이동</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="m-r" style="justify-content:space-between"><div class="m-t">내 교재</div><i data-i="plus" style="color:var(--acc)"></i></div>
+      <div class="m-c m-r"><div class="cv"></div><div style="flex:1"><b style="font-weight:400">교재 예시 A</b><div class="m-s">과목 · 학년 · 학기</div></div><span class="m-tag">선택됨</span></div>
+      <div class="m-c m-r"><div class="cv b"></div><div style="flex:1"><b style="font-weight:400">교재 예시 B</b><div class="m-s">과목 · 학년 · 학기</div></div></div>
+      <div class="m-c m-r"><div class="cv c"></div><div style="flex:1"><b style="font-weight:400">교재 예시 C</b><div class="m-s">과목 · 학년 · 학기</div></div></div>
+      <div class="m-b l"><i data-i="scan" style="vertical-align:-2px"></i> 새 교재 인식하기</div>
+      <div class="m-tb"><i data-i="home"></i><i data-i="book" class="on"></i><i data-i="pen"></i><i data-i="clock"></i></div>
+    </div></div><figcaption><b>내 교재 목록</b>등록한 교재를 골라 학습</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2" style="background:#2f2a3b;color:#fff">
+      <div class="sb" style="color:#cfc8dc"><span>9:41</span><span>●●●</span></div>
+      <div class="m-s" style="color:#cfc8dc;text-align:center">교재 표지를 화면에 맞춰 주세요</div>
+      <div class="view"><div class="bk"><i style="width:70%"></i><i style="width:90%"></i><i style="width:45%;margin-top:10px"></i></div></div>
+      <div class="m-r" style="justify-content:space-around;margin:4px 0 6px"><i data-i="image" style="width:22px;height:22px;color:#cfc8dc"></i><div class="shut" style="margin:0;border-color:#fff"></div><i data-i="scan" style="width:22px;height:22px;color:#cfc8dc"></i></div>
+    </div></div><figcaption><b>교재 자동 인식</b>촬영하거나 갤러리에서 선택</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="m-t">이 교재가 맞나요?</div>
+      <div class="m-f"><small>교재명</small><b>교재 예시 A</b></div>
+      <div class="m-r"><div class="m-f" style="flex:1"><small>출판사</small><b>출판사 예시</b></div><div class="m-f" style="flex:1"><small>과목</small><b>과목 예시</b></div></div>
+      <div class="m-r"><div class="m-f" style="flex:1"><small>학년</small><b>학년</b></div><div class="m-f" style="flex:1"><small>학기</small><b>학기</b></div></div>
+      <div class="m-f w"><small>시리즈명 · 확인이 필요해요</small><b>직접 확인해 주세요 <i data-i="edit" style="vertical-align:-2px;color:var(--acc)"></i></b></div>
+      <div class="warn"><i data-i="info"></i>불확실한 항목은 직접 확인하고 고칠 수 있어요.</div>
+      <div class="m-b">내 교재에 등록</div>
+    </div></div><figcaption><b>교재 정보 확인</b>인식 결과를 보고 수정</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="m-t">문제 사진 올리기</div>
+      <div class="dz"><i data-i="upload" style="width:22px;height:22px;color:var(--acc)"></i><div>문제를 촬영하거나 선택해요</div>
+        <svg class="pb" viewBox="0 0 200 70"><rect width="200" height="70" rx="8" fill="#F3F1F7"/><rect x="14" y="12" width="120" height="7" rx="3" fill="#cfc5e2"/><rect x="14" y="28" width="170" height="7" rx="3" fill="#cfc5e2"/><rect x="14" y="44" width="90" height="7" rx="3" fill="#cfc5e2"/></svg></div>
+      <div class="m-r"><div class="m-b l" style="flex:1"><i data-i="camera" style="vertical-align:-2px"></i> 촬영</div><div class="m-b l" style="flex:1"><i data-i="image" style="vertical-align:-2px"></i> 갤러리</div></div>
+      <div class="m-c"><div class="m-s">인식된 문제</div><div style="margin-top:3px">문제 내용을 읽어 왔어요. 잘못 읽은 부분이 있다면 고쳐 주세요.</div></div>
+      <div class="m-b">풀이 요청하기</div>
+    </div></div><figcaption><b>문제 사진 업로드</b>인식 내용을 먼저 확인</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="m-t">단계별 풀이</div>
+      <div class="warn"><i data-i="info"></i>인식이 불확실한 부분이 있어요. 확인해 주세요.</div>
+      <div class="stp"><b>1</b><div>문제에서 구하려는 것을 먼저 정리해요.</div></div>
+      <div class="stp"><b>2</b><div>필요한 개념을 짚고 식을 세워요.</div></div>
+      <div class="stp"><b>3</b><div>한 단계씩 계산해 답을 구해요.</div></div>
+      <div class="m-c"><div class="m-r"><i data-i="bulb" style="color:var(--acc)"></i><b style="font-weight:400">함께 보면 좋은 개념</b></div><div class="m-s" style="margin-top:3px">풀이에 쓰인 개념을 쉽게 설명해요.</div></div>
+      <div class="m-b l">풀이 저장하기</div>
+    </div></div><figcaption><b>AI 문제 풀이 결과</b>과정과 개념까지 함께</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="tools"><i data-i="pen" class="on"></i><i data-i="edit"></i><i data-i="ruler"></i><span class="m-s" style="margin-left:4px">도형 변환</span><span class="tg"></span></div>
+      <div class="grid-p"><svg viewBox="0 0 230 250" preserveAspectRatio="xMidYMid meet">
+        <path class="pen" d="M20 40 C40 10,60 70,80 38 S120 20,140 44"/><path class="pen p2" d="M20 90 L180 90"/>
+        <ellipse class="rough" cx="110" cy="160" rx="62" ry="36" transform="rotate(-5 110 160)"/><ellipse class="clean" cx="110" cy="160" rx="60" ry="36"/>
+        <path class="pen p3" d="M30 215 C60 195,90 235,130 212"/></svg></div>
+      <div class="m-r" style="justify-content:space-between"><span class="m-s">자동 저장됨</span><span class="m-b" style="margin:0;padding:6px 12px"><i data-i="spark" style="vertical-align:-2px"></i> 개념 요약</span></div>
+    </div></div><figcaption><b>스마트 필기</b>손떨림 보정 · 도형 자동 변환</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="m-t">필기 노트</div>
+      <div class="m-c"><div class="ln" style="width:85%"></div><div class="ln" style="width:60%;margin-top:6px"></div><div class="ln" style="width:75%;margin-top:6px"></div></div>
+      <div class="sheet">
+        <div class="m-t" style="font-size:13px">개념 요약</div>
+        <div class="warn"><i data-i="info"></i>잘못 인식했을 수도 있으니 틀린 게 있으면 고쳐주세요</div>
+        <div class="ta">앱이 읽어낸 필기 내용이 여기에 보여요<span class="caret"></span></div>
+        <div class="m-b" style="margin-top:2px">보내기</div>
+      </div>
+    </div></div><figcaption><b>AI 개념 요약</b>인식한 글을 확인하고 고친 뒤 전송</figcaption></figure>
+
+    <figure class="shot"><div class="ph"><div class="sc2">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="m-t">학습 기록</div>
+      <div class="m-r"><span class="m-tag" style="background:var(--acc);color:#fff">전체</span><span class="m-tag">풀이</span><span class="m-tag">필기</span><span class="m-tag">교재</span></div>
+      <div class="m-c m-r"><i data-i="bulb" style="color:var(--acc)"></i><div style="flex:1"><b style="font-weight:400">문제 풀이</b><div class="m-s">날짜 · 교재 예시 A</div></div><i data-i="right" style="color:var(--sub)"></i></div>
+      <div class="m-c m-r"><i data-i="pen" style="color:var(--acc)"></i><div style="flex:1"><b style="font-weight:400">필기 노트</b><div class="m-s">날짜 · 개념 정리</div></div><i data-i="right" style="color:var(--sub)"></i></div>
+      <div class="m-c m-r"><i data-i="book" style="color:var(--acc)"></i><div style="flex:1"><b style="font-weight:400">등록한 교재</b><div class="m-s">날짜 · 교재 예시 B</div></div><i data-i="right" style="color:var(--sub)"></i></div>
+      <div class="m-b l">다시 열기</div>
+      <div class="m-tb"><i data-i="home"></i><i data-i="book"></i><i data-i="pen"></i><i data-i="clock" class="on"></i></div>
+    </div></div><figcaption><b>학습 기록</b>저장한 자료를 다시 열기</figcaption></figure>
+  </div>
+</section>
+
+<!-- 이용 방법 -->
+<section id="how" class="alt" aria-labelledby="t-how">
+  <div class="wrap">
+    <div class="center rv">
+      <span class="eyebrow">이용 방법</span>
+      <h2 id="t-how">아홉 걸음으로 이어지는<br>학습의 흐름</h2>
+      <p class="lead">출시 후 이렇게 사용할 수 있도록 설계하고 있어요. 실제 순서와 화면은 달라질 수 있어요.</p>
+    </div>
+    <ol class="steps">
+      <li class="rv"><span class="n">01</span><span class="ic"><i data-i="user"></i></span><h3>회원가입 및 로그인</h3><p>학습 기록을 이어 가기 위한 시작 단계예요.</p><span class="s">계정 방식은 준비 중</span></li>
+      <li class="rv"><span class="n">02</span><span class="ic"><i data-i="camera"></i></span><h3>교재 표지 촬영·업로드</h3><p>표지를 찍거나 갤러리에서 사진을 골라요.</p></li>
+      <li class="rv"><span class="n">03</span><span class="ic"><i data-i="scan"></i></span><h3>교재 정보 인식·확인</h3><p>AI가 읽은 정보를 확인하고, 틀린 곳은 고쳐요.</p></li>
+      <li class="rv"><span class="n">04</span><span class="ic"><i data-i="book"></i></span><h3>내 교재에 등록</h3><p>확인한 교재를 내 교재 목록에 담아요.</p></li>
+      <li class="rv"><span class="n">05</span><span class="ic"><i data-i="image"></i></span><h3>문제 사진 촬영·업로드</h3><p>막히는 문제를 찍거나 선택해요.</p></li>
+      <li class="rv"><span class="n">06</span><span class="ic"><i data-i="bulb"></i></span><h3>AI 단계별 풀이 확인</h3><p>풀이 과정과 개념 설명을 차근차근 살펴봐요.</p></li>
+      <li class="rv"><span class="n">07</span><span class="ic"><i data-i="pen"></i></span><h3>스마트 노트에 필기</h3><p>손떨림 보정이 되는 노트에 내 생각을 적어요.</p></li>
+      <li class="rv"><span class="n">08</span><span class="ic"><i data-i="spark"></i></span><h3>AI 개념 요약으로 정리</h3><p>필기를 확인하고 보내면 핵심 개념을 정리해 줘요.</p></li>
+      <li class="rv"><span class="n">09</span><span class="ic"><i data-i="save"></i></span><h3>학습 기록에 저장</h3><p>저장한 자료를 언제든 다시 열어 확인해요.</p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 개발자 소개 -->
+<section id="developer" aria-labelledby="t-dev">
+  <div class="wrap">
+    <div class="center rv">
+      <span class="eyebrow">개발자 소개</span>
+      <h2 id="t-dev">혼자 기획하고,<br>직접 만들고 있어요</h2>
+    </div>
+    <div class="dev">
+      <article class="fc rv"><div class="av" aria-hidden="true">서</div><h3>연서준</h3><p style="color:var(--mut)">풀어볼까를 기획하고 개발하는 개발자예요. 학생들이 어려운 문제 앞에서 막히지 않고, 스스로 이해하며 학습할 수 있는 도구를 만들고 있어요.</p></article>
+      <article class="fc rv" style="transition-delay:.1s"><div class="ic"><i data-i="spark"></i></div><h3>csrift</h3><p style="color:var(--mut)">csrift는 풀어볼까를 개발하는 독립 개발 브랜드예요. 사용자의 학습 경험을 더 편리하고 직관적으로 만드는 서비스를 만드는 것이 방향이에요.</p></article>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="alt" aria-labelledby="t-faq">
+  <div class="wrap">
+    <div class="center rv"><span class="eyebrow">자주 묻는 질문</span><h2 id="t-faq">궁금한 점이 있나요?</h2></div>
+    <div class="faq rv">
+      <details><summary>풀어볼까는 어떤 서비스인가요?</summary><div class="a"><p>학생들이 문제를 이해하고 스스로 학습할 수 있도록 돕는 AI 기반 학습 보조 서비스예요. 교재 인식, AI 문제 풀이, 스마트 필기, AI 개념 요약을 하나의 흐름으로 연결하는 것을 목표로 개발하고 있어요.</p></div></details>
+      <details><summary>교재 자동 인식은 어떻게 작동하나요?</summary><div class="a"><p>교재 표지를 촬영하거나 갤러리에서 선택하면, AI가 표지를 분석해 교재명, 출판사, 과목, 학년, 학기, 시리즈명 같은 정보를 인식해요. 결과는 이용자가 확인하고 고친 뒤 내 교재 목록에 등록해요. 정보가 불확실하면 임의로 채우지 않고 직접 확인하도록 안내할 예정이에요. 아직 개발 중인 기능이에요.</p></div></details>
+      <details><summary>어떤 교재를 인식할 수 있나요?</summary><div class="a"><p>인식 가능한 교재의 범위는 아직 확정되지 않았어요. 정해지면 이 사이트에서 안내할게요. 표지가 흐리거나 비슷하면 다른 교재로 인식될 수 있어서, 확인 단계를 두려고 해요.</p></div></details>
+      <details><summary>문제 풀이 기능은 어떻게 이용하나요?</summary><div class="a"><p>문제를 사진으로 찍거나 선택해 올리면, AI가 문제를 읽고 단계별 풀이와 개념 설명을 만들어 줄 예정이에요. 글자나 수식을 잘못 읽었을 수 있어서 인식 내용을 먼저 보여 드리고, AI 결과는 학습 참고용으로 안내해요.</p></div></details>
+      <details><summary>스마트 필기는 무엇인가요?</summary><div class="a"><p>앱 안에서 펜으로 필기하는 노트예요. 손으로 적은 선의 작은 흔들림은 기본으로 보정해요. 도형 자동 변환과 직선 그리기는 설정에서 켰을 때만 작동하도록 계획하고 있어요.</p></div></details>
+      <details><summary>AI 개념 요약은 어떻게 사용하나요?</summary><div class="a"><p>필기 화면에서 [개념 요약]을 누르면 앱이 읽어낸 글을 보여 줘요. 틀린 부분을 직접 고친 뒤 [보내기]를 누르고, “보낼까요? 사용량이 차감돼요” 확인 창에서 최종 확인을 하면 AI가 핵심 개념을 정리하고 틀렸을 가능성이 있는 부분을 고쳐요. 결과는 이용자의 필기체로 바꿔 노트에 넣어요.</p></div></details>
+      <details><summary>회원가입이 필요한가요?</summary><div class="a"><p>계정과 로그인 방식은 아직 정해지지 않았어요. 확정되면 이 사이트와 개인정보처리방침에서 안내할게요.</p></div></details>
+      <details><summary>모바일에서도 이용할 수 있나요?</summary><div class="a"><p>풀어볼까는 Android 앱으로 개발하고 있어요. 다른 플랫폼 지원 여부는 아직 정해지지 않았어요.</p></div></details>
+      <details><summary>서비스는 언제 출시되나요?</summary><div class="a"><p>출시 일정은 아직 확정되지 않았어요. 정해지면 이 사이트에서 가장 먼저 안내할게요.</p></div></details>
+      <details><summary>사용량은 어떻게 관리되나요?</summary><div class="a"><p>AI 기능에는 사용량 한도를 둘 수 있어요. 적용되는 기능, 차감 단위, 한도와 갱신 기준은 이용 전에 앱에서 안내할 예정이에요(구체적인 수치는 아직 정해지지 않았어요). 요약 요청은 확인 창에서 최종 확인을 해야 전송되고, 그 전에 취소하면 차감되지 않아요. 오류로 결과를 받지 못했는데 사용량이 줄었다면 <a href="mailto:yydh7707@gmail.com">yydh7707@gmail.com</a>으로 확인을 요청할 수 있어요.</p></div></details>
+      <details><summary>문의는 어디로 하나요?</summary><div class="a"><p>서비스, 이용약관, 개인정보 관련 문의는 <a href="mailto:yydh7707@gmail.com">yydh7707@gmail.com</a>으로 보내 주세요.</p></div></details>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<section style="padding:0 0 24px">
+  <div class="cta rv">
+    <span class="eyebrow"><span class="dot"></span>출시 예정</span>
+    <h2>곧, 풀어볼까로 만나요</h2>
+    <p class="lead">출시 일정과 업데이트 소식은 확정되는 대로 이 페이지에서 가장 먼저 안내할게요.</p>
+    <span class="pill-off"><i data-i="clock"></i>출시 준비 중</span>
+  </div>
+</section>
+</main>
+
+<div class="legal" id="terms" aria-labelledby="terms-t" hidden><div class="dlg"><a class="back" href="#top">← 홈으로</a>
+  <h2 id="terms-t">풀어볼까 by csrift 서비스 이용약관</h2><p>시행일: 2026년 11월 23일</p>
+  <p style="margin-top:16px">이 약관은 csrift(이하 ‘운영자’)가 제공하는 ‘풀어볼까 by csrift’ 앱의 이용 기준을 정해요. 이 앱은 문제를 이해하고 필기를 정리하도록 돕는 학습 도구예요. 문제 풀이와 개념 요약·교정에는 생성형 AI가 쓰여요.</p>
+  <h3>서비스에서 할 수 있는 일</h3>
+  <ul>
+    <li><b>표지 확인:</b> 문제지나 교과서 표지를 찍거나 사진을 선택하면 어떤 책이나 문제지인지 찾아드려요.</li>
+    <li><b>AI 문제 풀이:</b> 직접 찍거나 선택한 문제 사진에서 문제를 읽고 풀이를 만들어드려요.</li>
+    <li><b>필기 노트:</b> 손으로 적은 선의 작은 흔들림은 기본으로 보정해요. 도형 자동 변환과 직선 그리기는 설정에서 해당 기능을 켰을 때만 작동해요.</li>
+    <li><b>개념 요약:</b> 필기 화면에서 [개념 요약]을 누르면 화면 아래에서 AI 창이 열리고, 앱이 읽어낸 글을 확인하고 고칠 수 있어요. 요청을 보내면 AI가 핵심 개념을 정리하고 틀렸을 가능성이 있는 부분을 고쳐요. 앱은 그 결과를 이용자의 필기체로 바꿔 노트에 넣어요.</li>
+  </ul>
+  <h3>사용량 제한과 차감</h3>
+  <p>운영자는 원활한 서비스 제공을 위해 AI 기능에 사용량 한도를 둘 수 있어요. 적용되는 기능, 차감 단위, 사용량 한도와 갱신 기준은 이용 전에 앱에서 안내해요. 남은 사용량이 부족하면 해당 기능이 제한될 수 있어요.</p>
+  <p style="margin-top:10px">개념 요약에서는 먼저 “잘못 인식했을 수도 있으니 틀린 게 있으면 고쳐주세요”라는 안내와 함께 인식한 텍스트를 보여드려요. [보내기]를 누르면 “보낼까요? 사용량이 차감돼요”라는 확인 창이 열리고, 최종 확인을 해야 요약 요청을 보내요. 그 전에 취소하면 이 요청은 전송되지 않고 이 요청에 대한 사용량도 차감하지 않아요.</p>
+  <p style="margin-top:10px">오류로 결과를 받지 못했는데 사용량이 줄었거나 같은 요청이 여러 번 차감된 것으로 보이면 <a href="mailto:yydh7707@gmail.com" style="text-decoration:underline">yydh7707@gmail.com</a>으로 확인을 요청할 수 있어요. 운영자는 이용 내역을 확인하고 처리 결과를 알려드려요.</p>
+  <h3>AI 결과는 학습 참고용이에요</h3>
+  <p>표지가 흐리거나 비슷하면 다른 교재로 인식할 수 있어요. 글자나 수식, 그림을 잘못 읽거나, 틀린 답을 그럴듯하게 제시하거나, 요약에서 중요한 부분을 빠뜨릴 수도 있어요. 교정 제안이 맞는 내용을 틀리게 바꾸거나, 필기체로 옮기는 과정에서 글자 모양이나 가독성이 달라질 수 있어요.</p>
+  <p style="margin-top:10px">풀이와 요약은 공부할 때 참고해 주세요. 시험 답안이나 과제에 쓰기 전에는 원문과 교재, 수업 자료를 대조해 확인해 주세요. AI가 만든 내용을 사용하더라도 학교나 시험에서 정한 규칙은 지켜야 해요.</p>
+  <h3>이용자가 올린 자료와 지켜야 할 점</h3>
+  <p>직접 만든 필기나 사진 등 이용자가 권리를 가진 자료의 권리는 그대로 이용자에게 있어요. 자료를 올린다고 해서 저작권을 운영자에게 넘기는 것은 아니에요. 운영자는 이용자가 요청한 인식·풀이·요약·교정·필기체 변환과 결과 표시 등에 필요한 범위에서만 자료를 처리하며, 개인정보의 외부 전송과 보관에 관한 내용은 개인정보처리방침에서 안내해요.</p>
+  <p style="margin-top:10px">교과서, 문제지, 해설, 삽화 등에 대한 권리는 해당 권리자에게 있어요. 교재를 가지고 있거나 사진을 직접 찍었다고 해서 해당 교재를 마음대로 복제·전송·배포할 권리가 생기는 것은 아니에요. 이용자는 권리자의 허락을 받았거나 법에서 허용하는 범위에서 자료를 올리고 이용해 주세요.</p>
+  <ul style="margin-top:10px">
+    <li><b>저작권과 개인정보 침해 금지:</b> 권한 없이 교재나 해설을 대량으로 올리거나 공유·판매하지 마세요. 다른 사람의 개인정보나 사진을 권한 없이 올리는 행위도 금지해요.</li>
+    <li><b>서비스 방해 금지:</b> 비정상적으로 반복 요청을 보내거나 사용량 제한을 부정한 방법으로 우회하지 마세요. 다른 사람의 접근 권한을 도용하거나 앱과 서버의 정상 작동을 방해해서도 안 돼요.</li>
+    <li><b>위해·기만 행위 금지:</b> 다른 사람을 괴롭히거나 속이기 위한 콘텐츠를 만들거나, AI가 만든 필기체를 이용해 다른 사람을 사칭하거나 서명을 위조해서는 안 돼요.</li>
+  </ul>
+  <p style="margin-top:10px">운영자는 위반 사실이나 구체적인 보안 위험을 확인하면 필요한 범위에서 해당 요청이나 기능 이용을 제한할 수 있어요. 원칙적으로 사유와 제한 범위, 이의를 제기할 방법을 안내해요. 침해 확산을 막기 위해 긴급한 경우에는 먼저 제한한 뒤 가능한 한 빨리 알려드려요.</p>
+  <h3>서비스 변경·중단과 이용 종료</h3>
+  <p>운영자는 기능 개선, 보안 업데이트, 정기 점검, 외부 AI 서비스 제공 조건 변경 등 합리적인 이유가 있을 때 서비스를 변경하거나 중단할 수 있어요. 이용에 중요한 영향을 주는 예정된 변경 또는 중단은 사유, 범위, 적용일을 앱에서 미리 알려드려요. 장애나 보안 사고로 사전 안내가 어려우면 상황이 확인되는 대로 안내해요.</p>
+  <p style="margin-top:10px">서비스를 종료할 때에는 자료를 확인하거나 이용 가능한 방식으로 보관할 시간을 합리적으로 드리고, 실제로 이용할 수 있는 저장 방법을 함께 안내해요. 이용자는 언제든 앱 사용을 그만둘 수 있어요. 기기에 저장된 자료 또는 이미 외부에 전송한 개인정보를 지우는 방법은 개인정보처리방침에서 안내해요.</p>
+  <h3>운영자의 책임</h3>
+  <p>운영자는 AI 결과가 언제나 정확하거나 완전하다고 보장하지 않아요. 운영자에게 책임이 없는 통신 장애, 기기 문제 또는 피할 수 없는 외부 장애로 생긴 손해에 대해서는 관련 법령과 구체적인 사정에 따라 책임 범위를 판단해요.</p>
+  <p style="margin-top:10px">이 약관은 운영자나 이행을 돕는 사람의 고의 또는 중대한 과실에 따른 책임을 배제하지 않아요. 운영자의 귀책사유로 발생한 손해에 대한 책임이나 관련 법령에 따른 이용자의 권리도 제한하지 않아요 (약관의 규제에 관한 법률 제7조).</p>
+  <h3>약관 변경과 문의</h3>
+  <p>이 약관은 2026년 11월 23일부터 시행해요. 약관이 바뀌면 변경 내용, 이유와 시행일을 앱에서 미리 알려드려요. 이용자에게 불리하거나 중요한 변경은 내용을 비교할 수 있게 표시하고 충분한 기간을 두고 안내해요. 추가 동의가 필요한 경우에는 법령에 따라 동의를 받아요.</p>
+  <p style="margin-top:10px">이용약관과 서비스에 관한 문의는 <a href="mailto:yydh7707@gmail.com" style="text-decoration:underline">yydh7707@gmail.com</a>으로 보내 주세요. 이 약관은 대한민국 법령에 따라 적용해요. 분쟁이 생기면 먼저 해결 방법을 함께 찾고, 해결되지 않으면 법령이 정한 절차를 따를 수 있어요.</p>
+</div></div>
+
+<div class="legal" id="privacy" aria-labelledby="priv-t" hidden><div class="dlg"><a class="back" href="#top">← 홈으로</a>
+  <h2 id="priv-t">풀어볼까 by csrift 개인정보처리방침</h2><p>시행일: 2026년 11월 23일</p>
+  <p style="margin-top:16px">풀어볼까 by csrift를 운영하는 csrift는 표지 확인, AI 문제 풀이, 필기 노트와 개념 요약 기능을 제공해요. 이 방침에서는 앱이 어떤 정보를 왜 처리하는지, 이용자가 앱 데이터를 어떻게 지우고 개인정보 관련 요청을 할 수 있는지 알려드려요.</p>
+  <h3>처리하는 정보와 이용 목적</h3>
+  <div class="tbl"><table><thead><tr><th>기능</th><th>처리하는 정보</th><th>이용 목적</th></tr></thead><tbody><tr><td>문제지·교과서 표지 확인</td><td>직접 찍거나 선택한 표지 사진, 표지에서 읽어낸 제목·출판사 등 식별에 필요한 정보</td><td>어떤 문제지나 교과서인지 찾아요.</td></tr><tr><td>문제 인식과 AI 풀이</td><td>직접 찍거나 선택한 문제 사진, 사진에서 읽어낸 문장·수식 등</td><td>문제를 인식하고 풀이를 만들어요.</td></tr><tr><td>필기 노트</td><td>필기 획, 노트 내용, 손떨림 보정 결과, 도형이나 직선으로 바꾼 결과</td><td>노트에 필기를 기록하고 보기 좋게 보정해요.</td></tr><tr><td>개념 요약과 교정</td><td>요약할 필기, 인식한 글과 이용자가 고친 글, AI가 만든 요약·교정 결과</td><td>필기를 읽어 핵심 개념을 정리하고 틀렸을 가능성이 있는 부분을 고쳐요.</td></tr><tr><td>내 필기체로 바꾸기</td><td>결과를 필기체로 바꾸는 데 필요한 필기 정보와 요약·교정 결과</td><td>AI가 정리한 내용을 이용자의 필기체로 바꿔 노트에 넣어요.</td></tr><tr><td>앱 설정과 사용량 관리</td><td>도형 자동 변환·직선 그리기 등 설정값, 사용량 기록</td><td>기기 안의 앱 저장공간을 이용해 설정을 유지하고 사용량을 관리해요.</td></tr><tr><td>이메일 문의</td><td>회신받을 이메일 주소, 문의 내용, 이용자가 첨부한 자료</td><td>문의를 확인하고 답변하거나 개인정보 관련 요청을 처리해요.</td></tr></tbody></table></div>
+  <p style="margin-top:10px">이용자가 요청한 기능이나 문의에 답변하는 데 필요한 개인정보는 「개인정보 보호법」 제15조제1항제4호에 따라 필요한 범위에서 처리해요. 별도 동의가 필요한 처리는 목적, 항목, 보유 기간과 거부 시 영향을 미리 알리고 동의를 받아요 (개인정보 보호법).</p>
+  <h3>카메라와 사진 접근</h3>
+  <ul>
+    <li><b>카메라:</b> 표지나 문제를 직접 찍을 때 사용해요. 카메라 권한을 요청하는 기기에서는 권한을 허용하지 않으면 직접 촬영할 수 없지만, 사진을 선택해 이용할 수 있어요.</li>
+    <li><b>사진·갤러리:</b> 표지 확인이나 문제 풀이에 쓸 사진은 갤러리에서 직접 선택할 수 있어요. 앱은 선택한 사진을 해당 기능에 사용해요.</li>
+    <li><b>접근 권한 관리:</b> 기기 설정의 앱 권한 메뉴에서 허용한 권한을 바꿀 수 있어요. 권한을 끄더라도 이미 앱에 저장하거나 외부에 보낸 자료가 자동으로 삭제되지는 않아요.</li>
+  </ul>
+  <p style="margin-top:10px">사진이나 필기에 이름, 학교·학급, 학생번호, 연락처, 얼굴 등 학습 기능에 필요하지 않은 정보가 들어 있다면 전송 전에 가려 주세요. 다른 사람의 사진이나 개인정보는 이용 권한이 있는 경우에만 올려 주세요.</p>
+  <h3>개념 요약을 사용할 때</h3>
+  <p>필기 화면에서 [개념 요약]을 누르면 아래에서 AI 창이 열리고, 앱이 읽어낸 글을 보여드려요. “잘못 인식했을 수도 있으니 틀린 게 있으면 고쳐주세요”라는 안내에 따라 내용을 직접 고칠 수 있어요.</p>
+  <p style="margin-top:10px">[보내기]를 누르면 “보낼까요? 사용량이 차감돼요”라는 확인 창이 열려요. 최종 확인을 해야 요약·교정 요청을 보내고, 취소하면 그 요청을 보내지 않아요. 요약·교정 결과는 이용자의 필기체로 바꿔 노트에 넣어요.</p>
+  <h3>외부 AI 서비스, 처리위탁 및 국외 이전</h3>
+  <p>문제 풀이와 개념 요약·교정에 외부 AI 서비스를 이용할 때에는 사진이나 인식한 글 등 해당 요청을 처리하는 데 필요한 정보가 기기 밖으로 전송될 수 있어요. 외부 전송을 원하지 않으면 전송 전에 요청을 취소할 수 있어요. 이 경우 외부 처리가 필요한 기능의 결과는 받을 수 없어요.</p>
+  <p style="margin-top:10px">외부 업체에 개인정보 처리를 맡기거나 국외에서 처리하게 되는 경우에는 관련 법령에 따라 위탁 업무, 정보를 받는 곳, 전송 항목과 보유 기간 등 필요한 내용을 공개해요. 국외 이전이나 제3자 제공에 별도 동의가 필요한 경우에는 필요한 내용을 먼저 알리고 동의를 받아요 (개인정보 보호법 제26조·제28조의8).</p>
+  <h3>보관 기간과 파기</h3>
+  <p>기기의 앱 저장공간에 저장된 설정과 사용량 기록은 아래의 방법으로 지울 수 있어요. 기기에 저장된 자료를 지우는 것과 이미 서버로 전송한 자료의 삭제는 별개예요.</p>
+  <p style="margin-top:10px">보관 기간이 지나거나 처리 목적을 달성해 더 이상 필요하지 않은 개인정보는 지체 없이 파기해요. 운영자가 관리하는 전자 파일은 복구하거나 다시 사용할 수 없도록 삭제해요. 법령에 따라 보존할 의무가 있는 정보는 다른 정보와 분리해 해당 기간만큼 보관한 뒤 파기해요 (개인정보 보호법 제21조).</p>
+  <h3>이용자가 직접 삭제하거나 요청하는 방법</h3>
+  <ul>
+    <li><b>기기에 저장된 앱 데이터:</b> 일반적으로 Android의 [설정] → [앱] → [풀어볼까 by csrift] → [저장공간] → [데이터 삭제]에서 지울 수 있어요. 기기마다 메뉴 이름은 다를 수 있고, 앱을 초기화하면 기기에만 있던 노트·설정값·사용량 기록도 함께 지워질 수 있어요. 앱 데이터나 앱을 삭제해도 이미 외부에 전송된 정보가 자동으로 삭제되지는 않아요.</li>
+    <li><b>갤러리 원본과 별도로 저장한 파일:</b> 앱 데이터를 지워도 갤러리의 원본이나 따로 저장한 파일은 남아요. 필요한 경우 사진 앱이나 파일 앱에서 직접 지워 주세요.</li>
+    <li><b>서버 정보와 권리 행사:</b> 이용자나 법정대리인은 이메일로 개인정보의 열람·정정·삭제·처리정지 또는 동의 철회를 요청할 수 있어요. 요청을 처리하는 데 필요한 범위에서 본인 또는 대리인인지 확인한 뒤 결과를 안내해 드려요. 외부 업체에 위탁한 정보는 필요한 경우 업체에 삭제를 요청하고, 법령상 보존 의무 등으로 즉시 삭제할 수 없는 정보가 있으면 그 이유와 보존 기간을 안내해요.</li>
+  </ul>
+  <h3>아동·청소년의 개인정보 보호</h3>
+  <p>아동·청소년은 사진이나 필기에 자신이나 친구의 이름, 학교·학급, 얼굴, 연락처가 들어 있지 않은지 확인해 주세요. 보호자는 아동·청소년의 개인정보가 잘못 전송됐거나 삭제가 필요한 경우 아래 이메일로 알려주실 수 있어요.</p>
+  <p style="margin-top:10px">만 14세 미만 아동의 개인정보를 처리할 때 법에 따라 동의가 필요하면 법정대리인의 동의를 받고 동의 여부를 확인해요. 이 경우 아동도 이해할 수 있는 쉬운 말로 안내해요 (개인정보 보호법 제22조의2).</p>
+  <h3>안전한 처리와 문의</h3>
+  <p>개인정보를 안전하게 다루기 위해 관련 법령에서 요구하는 보호조치를 적용해요. 개인정보에 관해 궁금한 점이 있거나 열람·삭제 등을 요청하려면 아래 연락처로 문의해 주세요.</p>
+  <ul style="margin-top:10px">
+    <li><b>개인정보처리자:</b> csrift</li>
+    <li><b>개인정보 문의 및 권리 행사 접수:</b> <a href="mailto:yydh7707@gmail.com" style="text-decoration:underline">yydh7707@gmail.com</a></li>
+    <li><b>침해 신고와 분쟁조정:</b> 개인정보 침해신고센터(국번 없이 118) 또는 개인정보분쟁조정위원회(1833-6972)에 도움을 요청할 수 있어요 (개인정보보호위원회 침해신고 안내).</li>
+  </ul>
+  <h3>방침 변경</h3>
+  <p>이 방침은 2026년 11월 23일부터 시행해요. 방침을 바꿀 때에는 바뀌는 내용과 시행일을 앱 또는 개인정보처리방침 게시 페이지에서 안내해요. 개인정보 처리 목적, 외부 전송 등 중요한 사항이 바뀌면 이용자가 알아보기 쉽게 알리고, 법에 따라 필요한 경우 다시 동의를 받아요.</p>
+</div></div>
+
+<footer>
+  <div class="wrap">
+    <div class="foot">
+      <div class="brand"><svg aria-hidden="true" viewBox="0 0 200 200"><use href="#logo"/></svg><span>풀어볼까 by csrift</span></div>
+      <ul>
+        <li><a href="#terms">서비스 이용약관</a></li>
+        <li><a href="#privacy">개인정보처리방침</a></li>
+        <li><a href="#top">맨 위로</a></li>
+      </ul>
+    </div>
+    <p class="copy">문의 · <a href="mailto:yydh7707@gmail.com">yydh7707@gmail.com</a><br>이 사이트의 앱 화면은 컨셉 UI 목업이며, 소개된 기능은 개발·출시 준비 중입니다.<br>© <span id="yr">2026</span> csrift. All rights reserved. 개발 · 연서준</p>
+  </div>
+</footer>
+
+<script>
+(()=>{
+  const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
+  // 아이콘 주입
+  $$('i[data-i]').forEach(e=>{const s=document.createElementNS('http://www.w3.org/2000/svg','svg');s.setAttribute('class','i'+(e.className?' '+e.className:''));s.setAttribute('aria-hidden','true');if(e.getAttribute('style'))s.setAttribute('style',e.getAttribute('style'));s.innerHTML='<use href="#i-'+e.dataset.i+'"/>';e.replaceWith(s)});
+  const hd=$('header'),bg=$('#burger'),mn=$('#menu');
+  addEventListener('scroll',()=>hd.classList.toggle('sc',scrollY>8),{passive:true});
+  const setMenu=o=>{mn.classList.toggle('open',o);bg.setAttribute('aria-expanded',o);bg.setAttribute('aria-label',o?'메뉴 닫기':'메뉴 열기')};
+  bg.addEventListener('click',()=>setMenu(!mn.classList.contains('open')));
+  mn.addEventListener('click',e=>{if(e.target.closest('a'))setMenu(false)});
+  addEventListener('keydown',e=>{if(e.key==='Escape')setMenu(false)});
+  // 등장 애니메이션
+  const io='IntersectionObserver' in window?new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting){e.target.classList.add('in');io.unobserve(e.target)}}),{threshold:.1,rootMargin:'0px 0px -40px'}):null;
+  $$('.rv').forEach(el=>io?io.observe(el):el.classList.add('in'));
+  // 현재 섹션 표시
+  const links=$$('.menu a');
+  if('IntersectionObserver' in window){const so=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting)links.forEach(a=>a.classList.toggle('on',a.getAttribute('href')==='#'+e.target.id))}),{rootMargin:'-45% 0px -50% 0px'});['about','features','how','developer','faq'].forEach(id=>so.observe(document.getElementById(id)))}
+  // FAQ: 하나만 열기
+  $$('details').forEach(d=>d.addEventListener('toggle',()=>{if(d.open)$$('details').forEach(o=>{if(o!==d)o.open=false})}));
+  // 화면 갤러리
+  const tr=$('#track'),shots=$$('.shot'),cc=$('#chips');
+  const names=['로그인','홈','내 교재','교재 인식','교재 확인','문제 업로드','풀이 결과','스마트 필기','개념 요약','학습 기록'];
+  names.forEach((n,i)=>{const b=document.createElement('button');b.type='button';b.className='chip';b.textContent=n;b.setAttribute('aria-pressed',i===0);b.onclick=()=>go(i);cc.appendChild(b)});
+  const step=()=>shots[1].offsetLeft-shots[0].offsetLeft;
+  const go=i=>tr.scrollTo({left:shots[i].offsetLeft-parseFloat(getComputedStyle(tr).paddingLeft),behavior:'smooth'});
+  const cur=()=>Math.max(0,Math.min(shots.length-1,Math.round(tr.scrollLeft/step())));
+  $('#prev').onclick=()=>go(Math.max(0,cur()-1));$('#next').onclick=()=>go(Math.min(shots.length-1,cur()+1));
+  let t;tr.addEventListener('scroll',()=>{clearTimeout(t);t=setTimeout(()=>{const c=cur();[...cc.children].forEach((b,i)=>b.setAttribute('aria-pressed',i===c))},60)},{passive:true});
+  tr.addEventListener('keydown',e=>{if(e.key==='ArrowRight')$('#next').click();if(e.key==='ArrowLeft')$('#prev').click()});
+  // 약관 · 방침 페이지 전환
+  const main=$('#main'),pages=['terms','privacy'],base=document.title;
+  const route=()=>{
+    const h=decodeURIComponent(location.hash.slice(1)),on=pages.includes(h);
+    main.hidden=on;pages.forEach(id=>document.getElementById(id).hidden=id!==h);
+    document.title=on?(h==='terms'?'서비스 이용약관':'개인정보처리방침')+' — 풀어볼까 by csrift':base;
+    if(on)scrollTo(0,0);else if(h){const x=document.getElementById(h);x&&requestAnimationFrame(()=>x.scrollIntoView())}
+  };
+  addEventListener('hashchange',route);route();
+  $('#yr').textContent=new Date().getFullYear();
+})();
+</script>
+</body>
+</html>
